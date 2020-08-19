@@ -134,10 +134,10 @@ class CGFormatter(data_formatters.base.GenericDataFormatter):
       for k in campaigns:
         write_csv(campaigns[k], filenames[k], config, to_csv_kwargs={'index': False})
     else:
-      campaigns = {
-        k: read_csv(v, config)
-        for k, v in filenames.items()
-      }
+      campaigns = {}
+      for k, v in filenames.items():
+        campaigns[k] = read_csv(v, config)
+        campaigns[k]['date'] = pd.to_datetime(campaigns[k]['date'])
     for k, v in campaigns.items():
       print(f"{k} size is {len(v)} with {v['campaign_id'].nunique()} campaigns")
     return campaigns
