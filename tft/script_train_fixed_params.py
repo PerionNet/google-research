@@ -42,29 +42,44 @@ import numpy as np
 import pandas as pd
 import tensorflow.compat.v1 as tf
 
+from libs.data_utils import write_csv
+
 ExperimentConfig = expt_settings.configs.ExperimentConfig
 HyperparamOptManager = libs.hyperparam_opt.HyperparamOptManager
 ModelClass = libs.tft_model.TemporalFusionTransformer
 
 
-def format_test_predictions(test, targets, p50_forecast, data_formatter):
+def format_output_column(output_df, output_col_name):
+  output_melt = output_df.melt(['forecast_time', 'identifier'], [f't+{i}' for i in range(15)], 't+', output_col_name)
+  output_melt['horizon'] = output_melt['t+'].str[2:].astype(int) + 1
+  output_melt['date'] = output_melt['forecast_time'] + pd.to_timedelta(output_melt['horizon'], 'days')
+  output_melt = output_melt.rename(columns={
+    'identifier': 'campaign_id',
+    'forecast_time': 'forecast_date',
+  })
+  return output_melt[['campaign_id', 'forecast_date', 'horizon', 'date', output_col_name]]
 
+
+def format_outputs(targets, p50_forecast):
+
+  targets_melt = format_output_column(targets, 'target')
+  pred_melt = format_output_column(p50_forecast, 'forecast')
+
+  result = (
+    targets_melt
+    .merge(
+      pred_melt,
+      on=['campaign_id', 'forecast_date', 'horizon', 'date'],
+      how='outer',
+    )
+  )
+
+  return result
+
+
+def format_test(test, data_formatter):
   data_formatter.reverse_scale(test)
-
-  targets_melt = targets.melt(['forecast_time', 'identifier'], [f't+{i}' for i in range(15)], 't+', 'target')
-  targets_melt['offset'] = targets_melt['t+'].str[2:].astype(int) + 1
-  targets_melt['date'] = targets_melt['forecast_time'] + pd.to_timedelta(targets_melt['offset'], 'days')
-  targets_melt = targets_melt.rename(columns={'identifier': 'campaign_id'})
-
-  test = test.merge(targets_melt[['campaign_id', 'date', 'target']], on=['campaign_id', 'date'], how='left')
-
-  pred_melt = p50_forecast.melt(['forecast_time', 'identifier'], [f't+{i}' for i in range(15)], 't+', 'forecast')
-  pred_melt['offset'] = pred_melt['t+'].str[2:].astype(int) + 1
-  pred_melt['date'] = pred_melt['forecast_time'] + pd.to_timedelta(pred_melt['offset'], 'days')
-  pred_melt = pred_melt.rename(columns={'identifier': 'campaign_id'})
-
-  test = test.merge(pred_melt[['campaign_id', 'date', 'forecast']], on=['campaign_id', 'date'], how='left')
-  test.to_csv("predictions.csv", index=False)
+  return test
 
 
 def main(expt_name,
@@ -73,7 +88,7 @@ def main(expt_name,
          config,
          data_formatter,
          use_testing_mode=False,
-         skip_train=False,
+         skip_train=True,
          ):
   """Trains tft based on defined model params.
 
@@ -166,7 +181,7 @@ def main(expt_name,
         tf.keras.backend.set_session(default_keras_session)
     best_params = opt_manager.get_best_params()
   else:
-    best_params = opt_manager.get_next_pacampaign_idrameters()
+    best_params = opt_manager.get_next_parameters()
 
   print("*** Running tests ***")
   tf.reset_default_graph()
@@ -201,7 +216,10 @@ def main(expt_name,
 
     tf.keras.backend.set_session(default_keras_session)
 
-  format_test_predictions(test, targets, p50_forecast, data_formatter)
+  test = format_test(test, data_formatter)
+  write_csv(test, 'test.csv', config, to_csv_kwargs={'index': False})
+  predictions = format_outputs(targets, p50_forecast)
+  write_csv(predictions, 'predictions.csv', config, to_csv_kwargs={'index': False})
 
   print("Training completed @ {}".format(dte.datetime.now()))
   print("Best validation loss = {}".format(val_loss))

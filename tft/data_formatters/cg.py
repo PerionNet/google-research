@@ -130,10 +130,12 @@ class CGFormatter(data_formatters.base.GenericDataFormatter):
     }
     train_campaigns = read_csv(filenames['train'], config)
     if train_campaigns is None:
+      print("Performing train-valid-test split...")
       campaigns = self._train_valid_test_split(df, time_steps, forecast_horizon)
       for k in campaigns:
         write_csv(campaigns[k], filenames[k], config, to_csv_kwargs={'index': False})
     else:
+      print("Loading existing train-valid-test split...")
       campaigns = {}
       for k, v in filenames.items():
         campaigns[k] = read_csv(v, config)
