@@ -124,7 +124,7 @@ def main(expt_name, config):
       'rmsle': np.exp(rmsle(sub_df['y_true'], sub_df['y_pred'])),
     }
   for h, d in errs.items():
-    print(h ,d)
+    print(h, d)
 
   # series_stats = pd.read_csv('series_stats.csv')
   # series_stats["was_in_valid"] = series_stats["series_days_in_data"] >= 59

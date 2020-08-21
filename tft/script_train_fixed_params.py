@@ -88,7 +88,7 @@ def main(expt_name,
          config,
          data_formatter,
          use_testing_mode=False,
-         skip_train=True,
+         skip_train=False,
          ):
   """Trains tft based on defined model params.
 
@@ -263,14 +263,22 @@ if __name__ == "__main__":
         choices=["yes", "no"],
         default="no",
         help="Whether to use gpu for training.")
+    parser.add_argument(
+      "skip_train",
+      metavar="g",
+      type=str,
+      nargs="?",
+      choices=["yes", "no"],
+      default="no",
+      help="Whether re-train model.")
 
     args = parser.parse_known_args()[0]
 
     root_folder = None if args.output_folder == "." else args.output_folder
 
-    return args.expt_name, root_folder, args.use_gpu == "yes"
+    return args.expt_name, root_folder, args.use_gpu == "yes", args.skip_train == "yes"
 
-  name, output_folder, use_tensorflow_with_gpu = get_args()
+  name, output_folder, use_tensorflow_with_gpu, skip_train = get_args()
 
   print("Using output folder {}".format(output_folder))
 
@@ -284,4 +292,5 @@ if __name__ == "__main__":
       model_folder=os.path.join(config.model_folder, "fixed"),
       config=config,
       data_formatter=formatter,
-      use_testing_mode=False)  # Change to false to use original default params
+      use_testing_mode=False,
+      skip_train=skip_train)  # Change to false to use original default params
