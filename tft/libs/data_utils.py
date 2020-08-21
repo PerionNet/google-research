@@ -17,7 +17,7 @@ def create_storage():
 def load_file_from_s3_if_not_exists(dirpath, filename):
   local_filepath = os.path.join(dirpath, filename)
   if os.path.exists(local_filepath):
-    pass
+    return
   storage = create_storage()
   s3_path = os.path.join("s3://", storage.bucket_path, "tft", filename)
   print(f"Copying from {s3_path} to {local_filepath}")
