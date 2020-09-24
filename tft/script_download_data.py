@@ -47,6 +47,7 @@ import sys
 from functools import reduce
 from operator import ior
 
+from data_formatters.cg import CGFormatter, all_features, FeatureName
 from expt_settings.configs import ExperimentConfig
 import numpy as np
 import pandas as pd
@@ -55,7 +56,7 @@ import wget
 
 
 # General functions for data downloading & aggregation.
-from libs.data_utils import load_or_read_csv
+from libs import utils
 
 
 def download_from_url(url, output_path):
@@ -585,68 +586,12 @@ def any_metric_is_missing(df):
 
 def preprocess_cg(config):
 
-    cat_cols = [
-      'data_connector_id',
-      'campaign_id',
-      'objective',
-      'num_adsets',
-      'campaign_age',
-    ]
+    total_steps, test_steps = config.model_steps
+    train_steps = total_steps - test_steps
 
-    metric_cols = [
-      'conversions_campaign',
-      'spend_campaign',
-      'impressions_campaign',
-      'clicks_campaign',
-    ]
+    df = pd.read_parquet(os.path.join(config.data_folder, 'df_with_all_feats_new.parquet'), engine='pyarrow')
 
-    df = load_or_read_csv('preprocessed_camp_stats.csv', config)
-
-    df['date'] = pd.to_datetime(df['date'])
-    df['date_first_of_campaign'] = pd.to_datetime(df['date_first_of_campaign'])
-    df['campaign_age'] = (df['date'] - df['date_first_of_campaign']).dt.days
-
-    # todo: reconsider this
-    df = df.drop(columns=[
-      'divisor', 'currency',
-      'cum_spend', 'cum_conversions', 'cum_cpa',
-      'finish_date', 'date_first_of_campaign', 'date_first_of_dc',
-      'end_of_month', 'is_date_end_of_month', 'date_end_of_month',
-    ])
-
-    for metric in metric_cols:
-      df[metric] = df[metric].fillna(0)
-
-    mean_conversions = (
-      df
-      .groupby('campaign_id')
-      ['conversions_campaign']
-      .mean()
-    )
-    print(f'Before filter by mean conversions: {len(df)} rows, {len(mean_conversions)} campaigns')
-    mean_conversions = mean_conversions[mean_conversions > 0.9]
-    df = df[df['campaign_id'].isin(mean_conversions.index)]
-    print(f'After filter by mean conversions: {len(df)} rows, {len(mean_conversions)} campaigns')
-
-    budget_df = load_or_read_csv('campaign_budgets_processed.csv', config, read_csv_kwargs={'index_col': 0})
-    budget_df['date'] = pd.to_datetime(budget_df['date'])
-    useful_budget_columns = [
-      'campaign_start_time',
-      'campaign_stop_time',
-      'campaign_daily_budget',
-      'campaign_lifetime_budget',
-      'campaign_budget_remaining',
-      'num_of_adsets_with_lifetime_budget',
-      'daily_budget_of_adsets_combined',
-      'is_cbo',
-    ]
-
-    # fill missing values first
-    # df = df.merge(
-    #   budget_df[['campaign_id', 'date'] + useful_budget_columns],
-    #   on=['campaign_id', 'date'],
-    #   how='left',
-    # )
+    df[FeatureName.DATE] = pd.to_datetime(df[FeatureName.DATE])
 
     # campaign_stats = (
     #   df
@@ -680,74 +625,36 @@ def preprocess_cg(config):
     # Resampling
     print('Resampling to regular grid')
     resampled_dfs = []
-    for series_id, sub_df in df.groupby('campaign_id'):
-        # Insert missing days in the middle
-        sub_df = sub_df.set_index('date', drop=True)
-        sub_df = sub_df.resample('1d').last()
 
-        sub_df[cat_cols] = sub_df[cat_cols].fillna(method='ffill')
-        sub_df["present"] = 1
+    df[FeatureName.PRESENT] = 1
+    df = df[[f.name for f in all_features]]
 
-        if len(sub_df) < 2:
-          continue
+    for series_id, sub_df in df.groupby(FeatureName.CAMPAIGN_EVENT):
 
-        if len(sub_df) < 30:
-          present_days_in_train = len(sub_df) // 2
-          days_to_add_to_train = 15 - present_days_in_train
-          first_train_date = sub_df.index.min() - pd.Timedelta(days=days_to_add_to_train)
-          sub_df = sub_df.reindex(pd.date_range(first_train_date, sub_df.index.max(), freq="D", name="date"))
-          sub_df[cat_cols] = sub_df[cat_cols].fillna(method='bfill')
+        if len(sub_df) < total_steps:
+            present_days_in_train = len(sub_df) // 2
+            present_days_in_test = len(sub_df) - present_days_in_train
+            days_to_add_to_train = train_steps - present_days_in_train
+            days_to_add_to_test = test_steps - present_days_in_test
 
-          days_to_add_to_test = 30 - len(sub_df)
-          last_test_date = sub_df.index.max() + pd.Timedelta(days=days_to_add_to_test)
-          sub_df = sub_df.reindex(pd.date_range(sub_df.index.min(), last_test_date, freq="D", name="date"))
-          sub_df[cat_cols] = sub_df[cat_cols].fillna(method='ffill')
+            sub_df = sub_df.set_index(FeatureName.DATE)
+            first_train_date = sub_df.index.min() - pd.Timedelta(days=days_to_add_to_train)
+            last_test_date = sub_df.index.max() + pd.Timedelta(days=days_to_add_to_test)
+            sub_df = sub_df.reindex(pd.date_range(first_train_date, last_test_date, freq="D", name=FeatureName.DATE))
+            sub_df = sub_df.reset_index()
+            for feature in all_features:
+                sub_df[feature.name] = sub_df[feature.name].fillna(0)#.fillna(method='bfill').fillna(method='ffill')
+                utils.cast_feature_column_to_type(feature, sub_df)
 
-          sub_df["present"] = sub_df["present"].fillna(0).astype(int)
-          assert len(sub_df) == 30
+            assert len(sub_df) == total_steps
 
-        sub_df = sub_df.reset_index()
         resampled_dfs.append(sub_df)
 
     df = pd.concat(resampled_dfs, axis=0).reset_index(drop=True)
 
-    df['campaign_id'] = df['campaign_id'].astype(int).astype(str)
-    df['data_connector_id'] = df['data_connector_id'].astype(int).astype(str)
-    df['num_adsets'] = df['num_adsets'].astype(int)
-    df['campaign_age'] = df['campaign_age'].astype(int)
-
-    is_missing = any_metric_is_missing(df)
-    df["is_missing"] = is_missing.astype(int)
-
-    for metric in metric_cols:
-        df[metric] = df[metric].fillna(0)
-        df[f'{metric}_sum_last30d'] = df[metric].rolling(30, min_periods=1).sum()
-        df[f'{metric}_mean_last30d'] = df[metric].rolling(30, min_periods=1).mean()
-        df[f'log1p_{metric}'] = np.log(1 + df[metric])
-        df[f'log1p_{metric}_mean_last30d'] = np.log(1 + df[f'{metric}_mean_last30d'])
-
-    df['day_of_week'] = pd.to_datetime(df['date'].values).dayofweek
-    df['day_of_month'] = pd.to_datetime(df['date'].values).day
-    df['month'] = pd.to_datetime(df['date'].values).month
-
-    dow_jones_index = load_or_read_csv("Dow Jones Industrial Average Historical Data.csv", config)
-    dow_jones_index["dow_jones_index"] = dow_jones_index["Price"].str.replace(',', '').astype(float)
-    dow_jones_index["date"] = pd.to_datetime(dow_jones_index["Date"])
-    dow_jones_index = dow_jones_index[["date", "dow_jones_index"]].set_index("date")
-    dow_jones_index = dow_jones_index.reindex(pd.date_range(
-      dow_jones_index.index.min(),
-      dow_jones_index.index.max(),
-      freq="D",
-      name="date",
-    ))
-    dow_jones_index["dow_jones_index"] = dow_jones_index["dow_jones_index"].fillna(method="ffill").fillna(method="bfill")
-    dow_jones_index = dow_jones_index.reset_index()
-    df = df.merge(
-      dow_jones_index[["date", "dow_jones_index"]],
-      on="date",
-      how="left",
-    )
-    # df['conversions_campaign'] = 1 + df['conversions_campaign']
+    for metric in utils.extract_cols_from_dtype(float, CGFormatter._column_definition):
+        print(metric, df[metric].isnull().sum(), df[metric].value_counts())
+        df[metric] = np.log1p(df[metric])
 
     df.to_csv(config.data_csv_path)
 

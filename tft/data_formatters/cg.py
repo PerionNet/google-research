@@ -19,6 +19,7 @@
 Defines dataset specific column definitions and data transformations.
 """
 import random
+from collections import namedtuple
 
 from libs.data_utils import read_csv, write_csv
 
@@ -35,6 +36,354 @@ DataTypes = data_formatters.base.DataTypes
 InputTypes = data_formatters.base.InputTypes
 
 
+class FeatureName:
+
+  DC_ID = 'data_connector_id'
+  CAMPAIGN_ID = 'campaign_id'
+  CAMPAIGN_EVENT = 'campaign_event'
+  DATE = 'date'
+  OBJECTIVE = 'objective'
+  COMMON_OBJECTIVE = 'common_objective'
+  NUM_ADSETS = 'num_adsets'
+  BUDGET = 'budget'
+  BUDGET_TYPE = 'budget_type'
+  SPEND = 'spend'
+  IMPRESSIONS = 'impressions'
+  CLICKS = 'clicks'
+  TARGET = 'target'
+  TARGET_EVENT = 'target_event'
+  TARGET_EVENT_OPTIMIZED_CONVERSIONS_PERCENT = 'target_event_optimized_conversions_percent'
+  TARGET_EVENT_OPTIMIZED_SPEND_PERCENT = 'target_event_optimized_spend_percent'
+  DAY_OF_WEEK = 'day_of_week'
+  DAY_OF_MONTH = 'day_of_month'
+  MONTH = 'month'
+  IS_HOLIDAY = 'is_holiday'
+  IS_WEEKEND = 'is_weekend'
+  DOW_JONES_INDEX = 'dow_jones_index'
+  CAMPAIGN_AGE = 'campaign_age'
+
+  # All conversions
+  ACTION_APP_CUSTOM_EVENT_FB_MOBILE_ADD_PAYMENT_INFO = 'action_app_custom_event_fb_mobile_add_payment_info'
+  ACTION_APP_CUSTOM_EVENT_FB_MOBILE_ADD_TO_CART = 'action_app_custom_event_fb_mobile_add_to_cart'
+  ACTION_APP_CUSTOM_EVENT_FB_MOBILE_ADD_TO_WISHLIST = 'action_app_custom_event_fb_mobile_add_to_wishlist'
+  ACTION_APP_CUSTOM_EVENT_FB_MOBILE_COMPLETE_REGISTRATION = 'action_app_custom_event_fb_mobile_complete_registration'
+  ACTION_APP_CUSTOM_EVENT_FB_MOBILE_CONTENT_VIEW = 'action_app_custom_event_fb_mobile_content_view'
+  ACTION_APP_CUSTOM_EVENT_FB_MOBILE_INITIATED_CHECKOUT = 'action_app_custom_event_fb_mobile_initiated_checkout'
+  ACTION_APP_CUSTOM_EVENT_FB_MOBILE_LEVEL_ACHIEVED = 'action_app_custom_event_fb_mobile_level_achieved'
+  ACTION_APP_CUSTOM_EVENT_FB_MOBILE_PURCHASE = 'action_app_custom_event_fb_mobile_purchase'
+  ACTION_APP_CUSTOM_EVENT_FB_MOBILE_RATE = 'action_app_custom_event_fb_mobile_rate'
+  ACTION_APP_CUSTOM_EVENT_FB_MOBILE_SEARCH = 'action_app_custom_event_fb_mobile_search'
+  ACTION_APP_CUSTOM_EVENT_FB_MOBILE_SPENT_CREDITS = 'action_app_custom_event_fb_mobile_spent_credits'
+  ACTION_APP_CUSTOM_EVENT_FB_MOBILE_TUTORIAL_COMPLETION = 'action_app_custom_event_fb_mobile_tutorial_completion'
+  ACTION_APP_CUSTOM_EVENT_OTHER = 'action_app_custom_event_other'
+  ACTION_OFFSITE_CONVERSION_FB_PIXEL_ADD_PAYMENT_INFO = 'action_offsite_conversion_fb_pixel_add_payment_info'
+  ACTION_OFFSITE_CONVERSION_FB_PIXEL_ADD_TO_WISHLIST = 'action_offsite_conversion_fb_pixel_add_to_wishlist'
+  ACTION_OFFSITE_CONVERSION_FB_PIXEL_CONTACT = 'action_offsite_conversion_fb_pixel_contact'
+  ACTION_OFFSITE_CONVERSION_FB_PIXEL_CUSTOMIZE_PRODUCT = 'action_offsite_conversion_fb_pixel_customize_product'
+  ACTION_OFFSITE_CONVERSION_FB_PIXEL_DONATE = 'action_offsite_conversion_fb_pixel_donate'
+  ACTION_OFFSITE_CONVERSION_FB_PIXEL_FLOW_COMPLETE = 'action_offsite_conversion_fb_pixel_flow_complete'
+  ACTION_OFFSITE_CONVERSION_FB_PIXEL_LEAD = 'action_offsite_conversion_fb_pixel_lead'
+  ACTION_OFFSITE_CONVERSION_FB_PIXEL_LISTING_INTERACTION = 'action_offsite_conversion_fb_pixel_listing_interaction'
+  ACTION_OFFSITE_CONVERSION_FB_PIXEL_SCHEDULE = 'action_offsite_conversion_fb_pixel_schedule'
+  ACTION_OFFSITE_CONVERSION_FB_PIXEL_SUBMIT_APPLICATION = 'action_offsite_conversion_fb_pixel_submit_application'
+  ACTION_OMNI_ACHIEVEMENT_UNLOCKED = 'action_omni_achievement_unlocked'
+  ACTION_OMNI_ADD_TO_CART = 'action_omni_add_to_cart'
+  ACTION_OMNI_APP_INSTALL = 'action_omni_app_install'
+  ACTION_OMNI_COMPLETE_REGISTRATION = 'action_omni_complete_registration'
+  ACTION_OMNI_INITIATED_CHECKOUT = 'action_omni_initiated_checkout'
+  ACTION_OMNI_LEVEL_ACHIEVED = 'action_omni_level_achieved'
+  ACTION_OMNI_PURCHASE = 'action_omni_purchase'
+  ACTION_OMNI_RATE = 'action_omni_rate'
+  ACTION_OMNI_SEARCH = 'action_omni_search'
+  ACTION_OMNI_SPEND_CREDITS = 'action_omni_spend_credits'
+  ACTION_OMNI_TUTORIAL_COMPLETION = 'action_omni_tutorial_completion'
+  ACTION_OMNI_VIEW_CONTENT = 'action_omni_view_content'
+  CONVERSION_START_TRIAL_MOBILE_APP = "conversion_start_trial_mobile_app"
+  CONVERSION_START_TRIAL_TOTAL = "conversion_start_trial_total"
+  CONVERSION_SUBSCRIBE_TOTAL = "conversion_subscribe_total"
+
+  # Windowed metrics
+  CLICKS_LAST_1000_DAYS = "clicks_last_1000_days"
+  CLICKS_LAST_3_DAYS = "clicks_last_3_days"
+  CLICKS_LAST_5_DAYS = "clicks_last_5_days"
+  CLICKS_LAST_7_DAYS = "clicks_last_7_days"
+  IMPRESSIONS_LAST_1000_DAYS = "impressions_last_1000_days"
+  IMPRESSIONS_LAST_3_DAYS = "impressions_last_3_days"
+  IMPRESSIONS_LAST_5_DAYS = "impressions_last_5_days"
+  IMPRESSIONS_LAST_7_DAYS = "impressions_last_7_days"
+  SPEND_LAST_1000_DAYS = "spend_last_1000_days"
+  SPEND_LAST_3_DAYS = "spend_last_3_days"
+  SPEND_LAST_5_DAYS = "spend_last_5_days"
+  SPEND_LAST_7_DAYS = "spend_last_7_days"
+  TARGET_LAST_1000_DAYS_TO_YESTERDAY = "target_last_1000_days_to_yesterday"
+  TARGET_LAST_3_DAYS_TO_YESTERDAY = "target_last_3_days_to_yesterday"
+  TARGET_LAST_5_DAYS_TO_YESTERDAY = "target_last_5_days_to_yesterday"
+  TARGET_LAST_7_DAYS_TO_YESTERDAY = "target_last_7_days_to_yesterday"
+
+  # Age
+  AGE_13_17 = "age_13-17"
+  AGE_18_24 = "age_18-24"
+  AGE_25_34 = "age_25-34"
+  AGE_35_44 = "age_35-44"
+  AGE_45_54 = "age_45-54"
+  AGE_55_64 = "age_55-64"
+  AGE_65_PLUS = "age_65+"
+  AGE_ALL_AUTOMATED_APP_ADS = "age_All (Automated App Ads)"
+  AGE_UNKNOWN = "age_Unknown"
+
+  # Audience
+  AUDIENCE_TYPE_GENERAL = "audience_type_general"
+  AUDIENCE_TYPE_LOOKALIKE = "audience_type_lookalike"
+  AUDIENCE_TYPE_OFFLINE = "audience_type_offline"
+  AUDIENCE_TYPE_PIXEL = "audience_type_pixel"
+
+  # Gender
+  GENDER_ALL_AUTOMATED_APP_ADS = "gender_All (Automated App Ads)"
+  GENDER_FEMALE = "gender_female"
+  GENDER_MALE = "gender_male"
+  GENDER_UNKNOWN = "gender_unknown"
+
+  # Hour
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_00_00_00_00_59_59 = "hourly_stats_aggregated_by_audience_time_zone_00:00:00 - 00:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_01_00_00_01_59_59 = "hourly_stats_aggregated_by_audience_time_zone_01:00:00 - 01:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_02_00_00_02_59_59 = "hourly_stats_aggregated_by_audience_time_zone_02:00:00 - 02:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_03_00_00_03_59_59 = "hourly_stats_aggregated_by_audience_time_zone_03:00:00 - 03:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_04_00_00_04_59_59 = "hourly_stats_aggregated_by_audience_time_zone_04:00:00 - 04:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_05_00_00_05_59_59 = "hourly_stats_aggregated_by_audience_time_zone_05:00:00 - 05:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_06_00_00_06_59_59 = "hourly_stats_aggregated_by_audience_time_zone_06:00:00 - 06:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_07_00_00_07_59_59 = "hourly_stats_aggregated_by_audience_time_zone_07:00:00 - 07:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_08_00_00_08_59_59 = "hourly_stats_aggregated_by_audience_time_zone_08:00:00 - 08:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_09_00_00_09_59_59 = "hourly_stats_aggregated_by_audience_time_zone_09:00:00 - 09:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_10_00_00_10_59_59 = "hourly_stats_aggregated_by_audience_time_zone_10:00:00 - 10:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_11_00_00_11_59_59 = "hourly_stats_aggregated_by_audience_time_zone_11:00:00 - 11:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_12_00_00_12_59_59 = "hourly_stats_aggregated_by_audience_time_zone_12:00:00 - 12:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_13_00_00_13_59_59 = "hourly_stats_aggregated_by_audience_time_zone_13:00:00 - 13:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_14_00_00_14_59_59 = "hourly_stats_aggregated_by_audience_time_zone_14:00:00 - 14:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_15_00_00_15_59_59 = "hourly_stats_aggregated_by_audience_time_zone_15:00:00 - 15:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_16_00_00_16_59_59 = "hourly_stats_aggregated_by_audience_time_zone_16:00:00 - 16:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_17_00_00_17_59_59 = "hourly_stats_aggregated_by_audience_time_zone_17:00:00 - 17:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_18_00_00_18_59_59 = "hourly_stats_aggregated_by_audience_time_zone_18:00:00 - 18:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_19_00_00_19_59_59 = "hourly_stats_aggregated_by_audience_time_zone_19:00:00 - 19:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_20_00_00_20_59_59 = "hourly_stats_aggregated_by_audience_time_zone_20:00:00 - 20:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_21_00_00_21_59_59 = "hourly_stats_aggregated_by_audience_time_zone_21:00:00 - 21:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_22_00_00_22_59_59 = "hourly_stats_aggregated_by_audience_time_zone_22:00:00 - 22:59:59"
+  HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_23_00_00_23_59_59 = "hourly_stats_aggregated_by_audience_time_zone_23:00:00 - 23:59:59"
+
+  # Device
+  IMPRESSION_DEVICE_ALL_AUTOMATED_APP_ADS = "impression_device_All (Automated App Ads)"
+  IMPRESSION_DEVICE_ANDROID_SMARTPHONE = "impression_device_android_smartphone"
+  IMPRESSION_DEVICE_ANDROID_TABLET = "impression_device_android_tablet"
+  IMPRESSION_DEVICE_DESKTOP = "impression_device_desktop"
+  IMPRESSION_DEVICE_IPAD = "impression_device_ipad"
+  IMPRESSION_DEVICE_IPHONE = "impression_device_iphone"
+  IMPRESSION_DEVICE_IPOD = "impression_device_ipod"
+  IMPRESSION_DEVICE_OTHER = "impression_device_other"
+
+  # Activity log
+  CONVERSION_EVENT_UPDATED = "conversion_event_updated"
+  CREATE_AD_SET_DUMMY = "create_ad_set_dummy"
+  CREATE_CAMPAIGN_GROUP_DUMMY = "create_campaign_group_dummy"
+  LEARNING_STATUS_LEARNING_FINISHED = "learning_status_learning finished"
+  LEARNING_STATUS_LEARNING_IN_PROGRESS = "learning_status_learning_in_progress"
+  UPDATE_AD_SET_BID_STRATEGY = "update_ad_set_bid_strategy"
+  UPDATE_AD_SET_BUDGET_DUMMY = "update_ad_set_budget_dummy"
+  UPDATE_AD_SET_DURATION = "update_ad_set_duration"
+  UPDATE_AD_SET_NAME = "update_ad_set_name"
+  UPDATE_AD_SET_OPTIMIZATION_GOAL = "update_ad_set_optimization_goal"
+  UPDATE_AD_SET_RUN_STATUS_ACTIVE = "update_ad_set_run_status_active"
+  UPDATE_AD_SET_RUN_STATUS_INACTIVE = "update_ad_set_run_status_inactive"
+  UPDATE_AD_SET_TARGET_SPEC = "update_ad_set_target_spec"
+  UPDATE_CAMPAIGN_BUDGET_DUMMY = "update_campaign_budget_dummy"
+  UPDATE_CAMPAIGN_DELIVERY_TYPE = "update_campaign_delivery_type"
+  UPDATE_CAMPAIGN_GROUP_DELIVERY_TYPE = "update_campaign_group_delivery_type"
+  UPDATE_CAMPAIGN_GROUP_SPEND_CAP_DUMMY = "update_campaign_group_spend_cap_dummy"
+  UPDATE_CAMPAIGN_SCHEDULE = "update_campaign_schedule"
+  UPDATE_CAMPAIGN_STATUS_ACTIVE = "update_campaign_status_active"
+  UPDATE_CAMPAIGN_STATUS_DELETED = "update_campaign_status_deleted"
+  UPDATE_CAMPAIGN_STATUS_INACTIVE = "update_campaign_status_inactive"
+  UPDATE_CAMPAIGN_STATUS_UPDATE_REQUIRED = "update_campaign_status_update_required"
+
+  PRESENT = 'present'
+
+
+Feature = namedtuple("Feature", ["name", "dtype", "tft_dtype", "tft_input_type"])
+
+
+all_features = [
+
+  Feature(FeatureName.CAMPAIGN_EVENT, str, DataTypes.CATEGORICAL, InputTypes.ID),
+
+  Feature(FeatureName.DATE, 'date', DataTypes.DATE, InputTypes.TIME),
+
+  Feature(FeatureName.TARGET, float, DataTypes.REAL_VALUED, InputTypes.TARGET),
+
+  # Attributes
+  Feature(FeatureName.DC_ID, int, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
+  Feature(FeatureName.CAMPAIGN_ID, int, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
+  Feature(FeatureName.TARGET_EVENT, str, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
+  Feature(FeatureName.OBJECTIVE, str, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
+  Feature(FeatureName.COMMON_OBJECTIVE, str, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
+
+  # Known inputs
+  Feature(FeatureName.BUDGET_TYPE, str, DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+  Feature(FeatureName.BUDGET, float, DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+  Feature(FeatureName.CAMPAIGN_AGE, int, DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+  Feature(FeatureName.DAY_OF_WEEK, int, DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+  Feature(FeatureName.DAY_OF_MONTH, int, DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+  Feature(FeatureName.MONTH, int, DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+  Feature(FeatureName.IS_HOLIDAY, int, DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+  Feature(FeatureName.IS_WEEKEND, int, DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+  Feature(FeatureName.PRESENT, int, DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+
+  # General observed inputs
+  Feature(FeatureName.NUM_ADSETS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.SPEND, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.IMPRESSIONS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.CLICKS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.TARGET_EVENT_OPTIMIZED_SPEND_PERCENT, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.TARGET_EVENT_OPTIMIZED_CONVERSIONS_PERCENT, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+
+  # Conversions
+  Feature(FeatureName.ACTION_APP_CUSTOM_EVENT_FB_MOBILE_ADD_PAYMENT_INFO, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_APP_CUSTOM_EVENT_FB_MOBILE_ADD_TO_CART, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_APP_CUSTOM_EVENT_FB_MOBILE_ADD_TO_WISHLIST, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_APP_CUSTOM_EVENT_FB_MOBILE_COMPLETE_REGISTRATION, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_APP_CUSTOM_EVENT_FB_MOBILE_CONTENT_VIEW, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_APP_CUSTOM_EVENT_FB_MOBILE_INITIATED_CHECKOUT, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_APP_CUSTOM_EVENT_FB_MOBILE_LEVEL_ACHIEVED, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_APP_CUSTOM_EVENT_FB_MOBILE_PURCHASE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_APP_CUSTOM_EVENT_FB_MOBILE_RATE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_APP_CUSTOM_EVENT_FB_MOBILE_SEARCH, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_APP_CUSTOM_EVENT_FB_MOBILE_SPENT_CREDITS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_APP_CUSTOM_EVENT_FB_MOBILE_TUTORIAL_COMPLETION, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_APP_CUSTOM_EVENT_OTHER, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OFFSITE_CONVERSION_FB_PIXEL_ADD_PAYMENT_INFO, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OFFSITE_CONVERSION_FB_PIXEL_ADD_TO_WISHLIST, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OFFSITE_CONVERSION_FB_PIXEL_CONTACT, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OFFSITE_CONVERSION_FB_PIXEL_CUSTOMIZE_PRODUCT, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OFFSITE_CONVERSION_FB_PIXEL_DONATE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OFFSITE_CONVERSION_FB_PIXEL_FLOW_COMPLETE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OFFSITE_CONVERSION_FB_PIXEL_LEAD, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OFFSITE_CONVERSION_FB_PIXEL_LISTING_INTERACTION, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OFFSITE_CONVERSION_FB_PIXEL_SCHEDULE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OFFSITE_CONVERSION_FB_PIXEL_SUBMIT_APPLICATION, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OMNI_ACHIEVEMENT_UNLOCKED, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OMNI_ADD_TO_CART, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OMNI_APP_INSTALL, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OMNI_COMPLETE_REGISTRATION, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OMNI_INITIATED_CHECKOUT, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OMNI_LEVEL_ACHIEVED, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OMNI_PURCHASE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OMNI_RATE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OMNI_SEARCH, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OMNI_SPEND_CREDITS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OMNI_TUTORIAL_COMPLETION, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.ACTION_OMNI_VIEW_CONTENT, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.CONVERSION_START_TRIAL_MOBILE_APP, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.CONVERSION_START_TRIAL_TOTAL, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.CONVERSION_SUBSCRIBE_TOTAL, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+
+  Feature(FeatureName.CLICKS_LAST_1000_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.CLICKS_LAST_3_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.CLICKS_LAST_5_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.CLICKS_LAST_7_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.IMPRESSIONS_LAST_1000_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.IMPRESSIONS_LAST_3_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.IMPRESSIONS_LAST_5_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.IMPRESSIONS_LAST_7_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.SPEND_LAST_1000_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.SPEND_LAST_3_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.SPEND_LAST_5_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.SPEND_LAST_7_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.TARGET_LAST_1000_DAYS_TO_YESTERDAY, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.TARGET_LAST_3_DAYS_TO_YESTERDAY, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.TARGET_LAST_5_DAYS_TO_YESTERDAY, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.TARGET_LAST_7_DAYS_TO_YESTERDAY, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+
+  Feature(FeatureName.AGE_13_17, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.AGE_18_24, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.AGE_25_34, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.AGE_35_44, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.AGE_45_54, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.AGE_55_64, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.AGE_65_PLUS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.AGE_ALL_AUTOMATED_APP_ADS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.AGE_UNKNOWN, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+
+  Feature(FeatureName.AUDIENCE_TYPE_GENERAL, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.AUDIENCE_TYPE_LOOKALIKE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.AUDIENCE_TYPE_OFFLINE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.AUDIENCE_TYPE_PIXEL, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+
+  Feature(FeatureName.GENDER_ALL_AUTOMATED_APP_ADS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.GENDER_FEMALE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.GENDER_MALE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.GENDER_UNKNOWN, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_00_00_00_00_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_01_00_00_01_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_02_00_00_02_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_03_00_00_03_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_04_00_00_04_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_05_00_00_05_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_06_00_00_06_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_07_00_00_07_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_08_00_00_08_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_09_00_00_09_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_10_00_00_10_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_11_00_00_11_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_12_00_00_12_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_13_00_00_13_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_14_00_00_14_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_15_00_00_15_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_16_00_00_16_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_17_00_00_17_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_18_00_00_18_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_19_00_00_19_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_20_00_00_20_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_21_00_00_21_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_22_00_00_22_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.HOURLY_STATS_AGGREGATED_BY_AUDIENCE_TIME_ZONE_23_00_00_23_59_59, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+
+  Feature(FeatureName.IMPRESSION_DEVICE_ALL_AUTOMATED_APP_ADS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.IMPRESSION_DEVICE_ANDROID_SMARTPHONE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.IMPRESSION_DEVICE_ANDROID_TABLET, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.IMPRESSION_DEVICE_DESKTOP, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.IMPRESSION_DEVICE_IPAD, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.IMPRESSION_DEVICE_IPHONE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.IMPRESSION_DEVICE_IPOD, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.IMPRESSION_DEVICE_OTHER, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+
+  Feature(FeatureName.CONVERSION_EVENT_UPDATED, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.CREATE_AD_SET_DUMMY, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.CREATE_CAMPAIGN_GROUP_DUMMY, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.LEARNING_STATUS_LEARNING_FINISHED, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.LEARNING_STATUS_LEARNING_IN_PROGRESS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_AD_SET_BID_STRATEGY, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_AD_SET_BUDGET_DUMMY, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_AD_SET_DURATION, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_AD_SET_NAME, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_AD_SET_OPTIMIZATION_GOAL, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_AD_SET_RUN_STATUS_ACTIVE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_AD_SET_RUN_STATUS_INACTIVE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_AD_SET_TARGET_SPEC, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_CAMPAIGN_BUDGET_DUMMY, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_CAMPAIGN_DELIVERY_TYPE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  # Feature(FeatureName.UPDATE_CAMPAIGN_GROUP_DELIVERY_TYPE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_CAMPAIGN_GROUP_SPEND_CAP_DUMMY, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_CAMPAIGN_SCHEDULE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_CAMPAIGN_STATUS_ACTIVE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_CAMPAIGN_STATUS_DELETED, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_CAMPAIGN_STATUS_INACTIVE, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.UPDATE_CAMPAIGN_STATUS_UPDATE_REQUIRED, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+
+  Feature(FeatureName.DOW_JONES_INDEX, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+
+]
+
+all_features_dict = {f.name: f for f in all_features}
+
+
 class CGFormatter(data_formatters.base.GenericDataFormatter):
   """Defines and formats data for the Favorita dataset.
 
@@ -44,23 +393,7 @@ class CGFormatter(data_formatters.base.GenericDataFormatter):
     identifiers: Entity identifiers used in experiments.
   """
 
-  _column_definition = [
-      ('campaign_id', DataTypes.CATEGORICAL, InputTypes.ID),
-      ('date', DataTypes.DATE, InputTypes.TIME),
-      ('log1p_conversions_campaign', DataTypes.REAL_VALUED, InputTypes.TARGET),
-      ('log1p_spend_campaign', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('log1p_impressions_campaign', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('log1p_clicks_campaign', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('num_adsets', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('campaign_age', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('is_missing', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('present', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
-      ('day_of_week', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
-      ('day_of_month', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
-      ('month', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
-      ('dow_jones_index', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
-      ('data_connector_id', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
-  ]
+  _column_definition = [(f.name, f.tft_dtype, f.tft_input_type, f.dtype) for f in all_features]
 
   def __init__(self):
     """Initialises formatter."""
@@ -122,6 +455,14 @@ class CGFormatter(data_formatters.base.GenericDataFormatter):
 
     return dfs
 
+  def _train_valid_test_split_simple(self, df, time_steps, forecast_horizon):
+    all_campaigns = df['campaign_id'].unique()
+    split = np.random.choice(["train", "valid", "test"], size=len(all_campaigns), p=[0.7, 0.15, 0.15])
+    return {
+      k: df[df['campaign_id'].isin(all_campaigns[split == k])][['campaign_id', 'date']].drop_duplicates()
+      for k in ["train", "valid", "test"]
+    }
+
   def _load_or_perform_split(self, df, time_steps, forecast_horizon, config):
     filenames = {
       'train': 'train_campaigns.csv',
@@ -131,7 +472,7 @@ class CGFormatter(data_formatters.base.GenericDataFormatter):
     train_campaigns = read_csv(filenames['train'], config)
     if train_campaigns is None:
       print("Performing train-valid-test split...")
-      campaigns = self._train_valid_test_split(df, time_steps, forecast_horizon)
+      campaigns = self._train_valid_test_split_simple(df, time_steps, forecast_horizon)
       for k in campaigns:
         write_csv(campaigns[k], filenames[k], config, to_csv_kwargs={'index': False})
     else:
@@ -144,7 +485,7 @@ class CGFormatter(data_formatters.base.GenericDataFormatter):
       print(f"{k} size is {len(v)} with {v['campaign_id'].nunique()} campaigns")
     return campaigns
 
-  def split_data(self, df, config=None, valid_n_days=15, test_n_days=15):
+  def split_data(self, df, config=None):
     """Splits data frame into training-validation-test data frames.
 
     This also calibrates scaling object, and transforms data for each split.
@@ -165,7 +506,7 @@ class CGFormatter(data_formatters.base.GenericDataFormatter):
     lookback = fixed_params['num_encoder_steps']
     forecast_horizon = time_steps - lookback
 
-    df['date'] = pd.to_datetime(df['date'])
+    df[FeatureName.DATE] = pd.to_datetime(df[FeatureName.DATE])
 
     campaigns = self._load_or_perform_split(df, time_steps, forecast_horizon, config)
     train = df.merge(campaigns['train'], on=['campaign_id', 'date'])
@@ -215,17 +556,8 @@ class CGFormatter(data_formatters.base.GenericDataFormatter):
 
       # Format real scalers
       self._real_scalers = {}
-      for col in [
-          'log1p_conversions_campaign',
-          'log1p_spend_campaign',
-          'log1p_impressions_campaign',
-          'log1p_clicks_campaign',
-      ]:
+      for col in utils.extract_cols_from_dtype(float, self._column_definition):
         self._real_scalers[col] = (present_df[col].mean(), present_df[col].std())
-      for col in [
-        'dow_jones_index',
-      ]:
-        self._real_scalers[col] = (df[col].mean(), df[col].std())
 
       self._target_scaler = (present_df[target_column].mean(), present_df[target_column].std())
 
@@ -277,18 +609,12 @@ class CGFormatter(data_formatters.base.GenericDataFormatter):
         {InputTypes.ID, InputTypes.TIME})
 
     # Format real inputs
-    for col in [
-        'log1p_conversions_campaign',
-        'log1p_spend_campaign',
-        'log1p_impressions_campaign',
-        'log1p_clicks_campaign',
-        'dow_jones_index',
-    ]:
+    for col in utils.extract_cols_from_dtype(float, self._column_definition):
       mean, std = self._real_scalers[col]
       output[col] = (df[col] - mean) / std
 
-      if col == 'log1p_conversions_campaign':
-        output.loc[output["present"] == 0, col] = -1
+      if col == FeatureName.TARGET:
+        output.loc[output[FeatureName.PRESENT] == 0, col] = -1
 
     # Format categorical inputs
     for col in categorical_inputs:
@@ -299,13 +625,7 @@ class CGFormatter(data_formatters.base.GenericDataFormatter):
 
   def reverse_scale(self, df):
     # Format real inputs
-    for col in [
-      'log1p_conversions_campaign',
-      'log1p_spend_campaign',
-      'log1p_impressions_campaign',
-      'log1p_clicks_campaign',
-      'dow_jones_index',
-    ]:
+    for col in utils.extract_cols_from_dtype(float, self._column_definition):
       mean, std = self._real_scalers[col]
       df[col] = df[col] * std + mean
 
@@ -333,9 +653,9 @@ class CGFormatter(data_formatters.base.GenericDataFormatter):
     """Returns fixed model parameters for experiments."""
 
     fixed_params = {
-        'total_time_steps': 30,
-        'num_encoder_steps': 15,
-        'num_epochs': 20,
+        'total_time_steps': 14,
+        'num_encoder_steps': 7,
+        'num_epochs': 10,
         'early_stopping_patience': 5,
         'multiprocessing_workers': 4
     }

@@ -20,6 +20,7 @@ import os
 import pathlib
 
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 from tensorflow.python.tools.inspect_checkpoint import print_tensors_in_checkpoint_file
 
@@ -58,6 +59,21 @@ def extract_cols_from_data_type(data_type, column_definition,
       for tup in column_definition
       if tup[1] == data_type and tup[2] not in excluded_input_types
   ]
+
+
+def extract_cols_from_dtype(dtype, column_definition):
+  return [
+    tup[0]
+    for tup in column_definition
+    if tup[3] == dtype
+  ]
+
+
+def cast_feature_column_to_type(feature, df):
+  if feature.dtype == 'date':
+    df[feature.name] = pd.to_datetime(df[feature.name])
+  else:
+    df[feature.name] = df[feature.name].astype(feature.dtype)
 
 
 # Loss functions.

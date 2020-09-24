@@ -109,3 +109,9 @@ class ExperimentConfig(object):
     }
 
     return data_formatter_class[self.experiment]()
+
+  @property
+  def model_steps(self):
+    data_formatter = self.make_data_formatter()
+    fixed_params = data_formatter.get_fixed_params()
+    return fixed_params['total_time_steps'], fixed_params['num_encoder_steps']

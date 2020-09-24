@@ -49,8 +49,8 @@ HyperparamOptManager = libs.hyperparam_opt.HyperparamOptManager
 ModelClass = libs.tft_model.TemporalFusionTransformer
 
 
-def format_output_column(output_df, output_col_name):
-  output_melt = output_df.melt(['forecast_time', 'identifier'], [f't+{i}' for i in range(15)], 't+', output_col_name)
+def format_output_column(output_df, output_col_name, test_steps):
+  output_melt = output_df.melt(['forecast_time', 'identifier'], [f't+{i}' for i in range(test_steps)], 't+', output_col_name)
   output_melt['horizon'] = output_melt['t+'].str[2:].astype(int) + 1
   output_melt['date'] = output_melt['forecast_time'] + pd.to_timedelta(output_melt['horizon'], 'days')
   output_melt = output_melt.rename(columns={
@@ -60,10 +60,10 @@ def format_output_column(output_df, output_col_name):
   return output_melt[['campaign_id', 'forecast_date', 'horizon', 'date', output_col_name]]
 
 
-def format_outputs(targets, p50_forecast):
+def format_outputs(targets, p50_forecast, test_steps):
 
-  targets_melt = format_output_column(targets, 'target')
-  pred_melt = format_output_column(p50_forecast, 'forecast')
+  targets_melt = format_output_column(targets, 'target', test_steps)
+  pred_melt = format_output_column(p50_forecast, 'forecast', test_steps)
 
   result = (
     targets_melt
@@ -132,6 +132,7 @@ def main(expt_name,
   )
 
   # Sets up default params
+  total_steps, test_steps = config.model_steps
   fixed_params = data_formatter.get_experiment_params()
   init_params = data_formatter.get_default_model_params()
   init_params["model_folder"] = model_folder
@@ -218,7 +219,7 @@ def main(expt_name,
 
   test = format_test(test, data_formatter)
   write_csv(test, 'test.csv', config, to_csv_kwargs={'index': False})
-  predictions = format_outputs(targets, p50_forecast)
+  predictions = format_outputs(targets, p50_forecast, test_steps)
   write_csv(predictions, 'predictions.csv', config, to_csv_kwargs={'index': False})
 
   print("Training completed @ {}".format(dte.datetime.now()))
