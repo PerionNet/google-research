@@ -647,6 +647,7 @@ def preprocess_cg(config):
             sub_df = sub_df.reset_index()
             sub_df[FeatureName.CAMPAIGN_EVENT] = sub_df[FeatureName.CAMPAIGN_EVENT].fillna(series_id)
             sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].fillna(campaign_id)
+            sub_df[FeatureName.TARGET] = sub_df[FeatureName.TARGET].fillna(-1)
 
             assert len(sub_df) == total_steps
 

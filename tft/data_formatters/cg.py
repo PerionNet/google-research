@@ -231,8 +231,8 @@ all_features = [
   Feature(FeatureName.DAY_OF_WEEK, int, DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
   Feature(FeatureName.DAY_OF_MONTH, int, DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
   Feature(FeatureName.MONTH, int, DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
-  Feature(FeatureName.IS_HOLIDAY, int, DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
-  Feature(FeatureName.IS_WEEKEND, int, DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+  Feature(FeatureName.IS_HOLIDAY, float, DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+  Feature(FeatureName.IS_WEEKEND, float, DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
   Feature(FeatureName.PRESENT, int, DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
 
   # General observed inputs
