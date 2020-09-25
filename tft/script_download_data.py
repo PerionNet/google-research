@@ -647,11 +647,12 @@ def preprocess_cg(config):
             sub_df = sub_df.reset_index()
             sub_df[FeatureName.CAMPAIGN_EVENT] = sub_df[FeatureName.CAMPAIGN_EVENT].fillna(series_id)
             sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].fillna(campaign_id)
-            for feature in all_features:
-                sub_df[feature.name] = sub_df[feature.name].fillna(0)#.fillna(method='bfill').fillna(method='ffill')
-                utils.cast_feature_column_to_type(feature, sub_df)
 
             assert len(sub_df) == total_steps
+
+        for feature in all_features:
+            sub_df[feature.name] = sub_df[feature.name].fillna(0)  # .fillna(method='bfill').fillna(method='ffill')
+            utils.cast_feature_column_to_type(feature, sub_df)
 
         resampled_dfs.append(sub_df)
 
