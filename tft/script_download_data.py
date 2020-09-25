@@ -646,6 +646,8 @@ def preprocess_cg(config):
                 sub_df[feature.name] = sub_df[feature.name].fillna(0)#.fillna(method='bfill').fillna(method='ffill')
                 utils.cast_feature_column_to_type(feature, sub_df)
 
+            if len(sub_df) < 14:
+                print(14, total_steps, len(sub_df))
             assert len(sub_df) == total_steps
 
         resampled_dfs.append(sub_df)
@@ -673,10 +675,10 @@ def main(expt_name, force_download, output_folder):
 
   expt_config = ExperimentConfig(expt_name, output_folder)
 
-  if os.path.exists(expt_config.data_csv_path) and not force_download:
-    print('Data has been processed for {}. Skipping download...'.format(
-        expt_name))
-    sys.exit(0)
+  # if os.path.exists(expt_config.data_csv_path) and not force_download:
+  #   print('Data has been processed for {}. Skipping download...'.format(
+  #       expt_name))
+  #   sys.exit(0)
   # todo: why to do this?
   # else:
   #   print('Resetting data folder...')
