@@ -753,7 +753,7 @@ class TemporalFusionTransformer(object):
         cols = col_mappings[k]
         arr = _batch_single_entity(sliced[cols].copy())
         if arr is None:
-            print(f"Bad id: {id_}")
+            print(f"Bad id: {id_} of shape {sliced.shape}")
         if k not in data_map:
           data_map[k] = [arr]
         else:
