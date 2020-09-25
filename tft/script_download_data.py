@@ -642,12 +642,11 @@ def preprocess_cg(config):
             last_test_date = sub_df.index.max() + pd.Timedelta(days=days_to_add_to_test)
             sub_df = sub_df.reindex(pd.date_range(first_train_date, last_test_date, freq="D", name=FeatureName.DATE))
             sub_df = sub_df.reset_index()
+            sub_df[FeatureName.CAMPAIGN_EVENT] = sub_df[FeatureName.CAMPAIGN_EVENT].fillna(series_id)
             for feature in all_features:
                 sub_df[feature.name] = sub_df[feature.name].fillna(0)#.fillna(method='bfill').fillna(method='ffill')
                 utils.cast_feature_column_to_type(feature, sub_df)
 
-            if len(sub_df) < 14:
-                print(14, total_steps, len(sub_df))
             assert len(sub_df) == total_steps
 
         resampled_dfs.append(sub_df)
