@@ -125,11 +125,7 @@ def main(expt_name,
   data_csv_path = config.data_csv_path
   raw_data = pd.read_csv(data_csv_path, index_col=0)
   train, valid, test = data_formatter.split_data(raw_data, config)
-  train[["campaign_id", "date"]].drop_duplicates().to_csv("train_campaigns.csv", index=False)
-  valid[["campaign_id", "date"]].drop_duplicates().to_csv("valid_campaigns.csv", index=False)
-  test[["campaign_id", "date"]].drop_duplicates().to_csv("test_campaigns.csv", index=False)
-  train_samples, valid_samples = data_formatter.get_num_samples_for_calibration(
-  )
+  train_samples, valid_samples = data_formatter.get_num_samples_for_calibration()
 
   # Sets up default params
   total_steps, test_steps = config.model_steps
