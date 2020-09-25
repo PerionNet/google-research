@@ -740,7 +740,7 @@ class TemporalFusionTransformer(object):
     ]
 
     data_map = {}
-    for _, sliced in data.groupby(id_col):
+    for id_, sliced in data.groupby(id_col):
 
       col_mappings = {
           'identifier': [id_col],
@@ -752,7 +752,8 @@ class TemporalFusionTransformer(object):
       for k in col_mappings:
         cols = col_mappings[k]
         arr = _batch_single_entity(sliced[cols].copy())
-
+        if arr is None:
+            print(f"Bad id: {id_}")
         if k not in data_map:
           data_map[k] = [arr]
         else:
