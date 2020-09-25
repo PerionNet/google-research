@@ -629,7 +629,10 @@ def preprocess_cg(config):
     df[FeatureName.PRESENT] = 1
     df = df[[f.name for f in all_features]]
 
-    for series_id, sub_df in df.groupby(FeatureName.CAMPAIGN_EVENT):
+    for (series_id, campaign_id), sub_df in df.groupby([
+        FeatureName.CAMPAIGN_EVENT,
+        FeatureName.CAMPAIGN_ID,
+    ]):
 
         if len(sub_df) < total_steps:
             present_days_in_train = len(sub_df) // 2
