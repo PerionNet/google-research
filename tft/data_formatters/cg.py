@@ -240,8 +240,9 @@ all_features = [
   Feature(FeatureName.SPEND, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
   Feature(FeatureName.IMPRESSIONS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
   Feature(FeatureName.CLICKS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-  Feature(FeatureName.TARGET_EVENT_OPTIMIZED_SPEND_PERCENT, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-  Feature(FeatureName.TARGET_EVENT_OPTIMIZED_CONVERSIONS_PERCENT, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  # todo: revise these features
+  # Feature(FeatureName.TARGET_EVENT_OPTIMIZED_SPEND_PERCENT, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  # Feature(FeatureName.TARGET_EVENT_OPTIMIZED_CONVERSIONS_PERCENT, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
 
   # Conversions
   Feature(FeatureName.ACTION_APP_CUSTOM_EVENT_FB_MOBILE_ADD_PAYMENT_INFO, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
