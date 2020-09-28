@@ -64,6 +64,8 @@ def main(expt_name, config):
 
   for (campaign_event, campaign_id), predictions_campaign_df in predictions_df.groupby([FeatureName.CAMPAIGN_EVENT, FeatureName.CAMPAIGN_ID]):
     test_campaign_df = test_df[test_df[FeatureName.CAMPAIGN_EVENT] == campaign_event]
+    test_campaign_df = test_campaign_df.drop(columns=[FeatureName.CAMPAIGN_ID, FeatureName.TARGET_EVENT])
+
     for forecast_date, sub_df in predictions_campaign_df.groupby('forecast_date'):
 
       sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].astype(str)
@@ -80,7 +82,6 @@ def main(expt_name, config):
       sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].fillna(campaign_id).astype(int)
 
       sub_df = sub_df.rename(columns={'target': 'target_pred'})
-      test_campaign_df = test_campaign_df.drop(columns=[FeatureName.CAMPAIGN_ID, FeatureName.TARGET_EVENT])
 
       sub_df = sub_df.merge(
         test_campaign_df,
@@ -128,8 +129,8 @@ def main(expt_name, config):
       if sub_df[FeatureName.TARGET].sum() < 14:
         pass
 
-      if campaign_id not in train_campaigns['campaign_id'].unique():
-        pass
+      # if campaign_id not in train_campaigns['campaign_id'].unique():
+      #   pass
 
       dfs.append(sub_df[[
         FeatureName.CAMPAIGN_EVENT, 'campaign_id', 'date',
