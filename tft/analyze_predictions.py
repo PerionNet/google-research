@@ -6,6 +6,7 @@ import pandas as pd
 from scipy.stats import norm
 from sklearn.metrics import mean_squared_log_error
 
+from data_formatters.cg import FeatureName
 from expt_settings.configs import ExperimentConfig
 from libs.data_utils import read_csv
 
@@ -49,62 +50,69 @@ def main(expt_name, config):
   train_campaigns['date'] = pd.to_datetime(train_campaigns['date'])
 
   dfs = []
-  for campaign_id, predictions_campaign_df in predictions_df.groupby('campaign_id'):
-    test_campaign_df = test_df[test_df['campaign_id'] == campaign_id]
+  for (campaign_event, campaign_id), predictions_campaign_df in predictions_df.groupby([FeatureName.CAMPAIGN_EVENT, FeatureName.CAMPAIGN_ID]):
+    test_campaign_df = test_df[test_df[FeatureName.CAMPAIGN_EVENT] == campaign_event]
     for forecast_date, sub_df in predictions_campaign_df.groupby('forecast_date'):
+
+      sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].astype(str)
 
       sub_df = sub_df.set_index('date')
       sub_df = sub_df.reindex(pd.date_range(
-        forecast_date - pd.Timedelta(days=30),
+        forecast_date - pd.Timedelta(days=14),
         sub_df.index.max(),
         freq='D',
         name='date',
       )).reset_index()
 
-      sub_df['campaign_id'] = sub_df['campaign_id'].fillna(campaign_id).astype(int)
+      sub_df[FeatureName.CAMPAIGN_EVENT] = sub_df[FeatureName.CAMPAIGN_EVENT].fillna(campaign_event)
+      sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].fillna(campaign_id).astype(int)
 
-      sub_df = sub_df.merge(test_campaign_df, on=['campaign_id', 'date'])
+      sub_df = sub_df.rename(columns={'target': 'target_pred'})
+      sub_df = sub_df.merge(test_campaign_df, on=[FeatureName.CAMPAIGN_EVENT, 'date'])
 
       sub_df = sub_df[sub_df["present"] == 1]
 
       sub_df = sub_df.sort_values('date')
-      sub_df['target'] = np.exp(sub_df['target']) - 1
+      sub_df['target_pred'] = np.exp(sub_df['target_pred']) - 1
       sub_df['forecast'] = np.exp(sub_df['forecast']) - 1
       sub_df.loc[sub_df['forecast'] < 0, 'forecast'] = 0
       sub_df['forecast'] = np.where(
         sub_df['forecast'].isnull(),
-        sub_df['conversions_campaign'],
+        sub_df[FeatureName.TARGET],
         sub_df['forecast'],
       )
       sub_df['horizon'] = sub_df['horizon'].fillna(-1).astype(int)
-      sub_df['spend_real'] = sub_df['spend_campaign'].cumsum()
-      mean_known_spend_per_day = sub_df.loc[sub_df['horizon'] < 0, 'spend_campaign'].mean()
+      sub_df['spend_real'] = sub_df[FeatureName.SPEND].cumsum()
+      mean_known_spend_per_day = sub_df.loc[sub_df['horizon'] < 0, FeatureName.SPEND].mean()
       sub_df['spend_campaign_pred'] = np.where(
         sub_df['horizon'] < 0,
-        sub_df['spend_campaign'],
+        sub_df[FeatureName.SPEND],
         mean_known_spend_per_day,
       )
       sub_df['spend_pred'] = sub_df['spend_campaign_pred'].cumsum()
-      sub_df['conv_real'] = sub_df['conversions_campaign'].cumsum()
+      sub_df['conv_real'] = sub_df[FeatureName.TARGET].cumsum()
       sub_df['conv_pred'] = sub_df['forecast'].cumsum()
       sub_df['y_true'] = sub_df['spend_real'] / sub_df['conv_real']
       sub_df['y_pred'] = sub_df['spend_pred'] / sub_df['conv_pred']
       sub_df = sub_df.replace(np.inf, np.nan)
 
+      if len(sub_df) < 14:
+        pass
+
       if has_spend_changed(
-          spend_before=sub_df[sub_df['horizon'] < 0]['spend_campaign'].values,
-          spend_after=sub_df[sub_df['horizon'] >= 0]['spend_campaign'].values,
+          spend_before=sub_df[sub_df['horizon'] < 0][FeatureName.SPEND].values,
+          spend_after=sub_df[sub_df['horizon'] >= 0][FeatureName.SPEND].values,
       ):
         pass
 
-      if sub_df['conversions_campaign'].sum() < 30:
+      if sub_df[FeatureName.TARGET].sum() < 14:
         pass
 
-      if campaign_id in train_campaigns['campaign_id']:
+      if campaign_id not in train_campaigns['campaign_id'].unique():
         pass
 
       dfs.append(sub_df[[
-        'campaign_id', 'date',
+        FeatureName.CAMPAIGN_EVENT, 'campaign_id', 'date',
         'horizon',
         'spend_campaign', 'spend_campaign_pred', 'conversions_campaign', 'forecast',
         'spend_real', 'spend_pred', 'conv_real', 'conv_pred',
