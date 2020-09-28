@@ -80,7 +80,15 @@ def main(expt_name, config):
       sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].fillna(campaign_id).astype(int)
 
       sub_df = sub_df.rename(columns={'target': 'target_pred'})
-      sub_df = sub_df.merge(test_campaign_df, on=[FeatureName.CAMPAIGN_EVENT, 'date'])
+      sub_df = sub_df.merge(
+        test_campaign_df,
+        on=[
+          FeatureName.CAMPAIGN_EVENT,
+          FeatureName.CAMPAIGN_ID,
+          FeatureName.TARGET_EVENT,
+          FeatureName.DATE,
+        ],
+      )
 
       sub_df = sub_df[sub_df["present"] == 1]
 
@@ -126,7 +134,7 @@ def main(expt_name, config):
       dfs.append(sub_df[[
         FeatureName.CAMPAIGN_EVENT, 'campaign_id', 'date',
         'horizon',
-        'spend_campaign', 'spend_campaign_pred', 'conversions_campaign', 'forecast',
+        FeatureName.SPEND, 'spend_campaign_pred', FeatureName.TARGET, 'forecast',
         'spend_real', 'spend_pred', 'conv_real', 'conv_pred',
         'y_true', 'y_pred',
       ]])
