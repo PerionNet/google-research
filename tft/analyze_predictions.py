@@ -50,6 +50,18 @@ def main(expt_name, config):
   train_campaigns['date'] = pd.to_datetime(train_campaigns['date'])
 
   dfs = []
+
+  # todo: remove after model re-train
+  predictions_df = predictions_df.rename(columns={'campaign_id': FeatureName.CAMPAIGN_EVENT})
+
+  predictions_df = pd.concat([
+    predictions_df,
+    pd.DataFrame(
+      predictions_df[FeatureName.CAMPAIGN_EVENT].str.split('_', 1).tolist(),
+      columns=[FeatureName.CAMPAIGN_ID, FeatureName.TARGET_EVENT],
+    ),
+  ], axis=1)
+
   for (campaign_event, campaign_id), predictions_campaign_df in predictions_df.groupby([FeatureName.CAMPAIGN_EVENT, FeatureName.CAMPAIGN_ID]):
     test_campaign_df = test_df[test_df[FeatureName.CAMPAIGN_EVENT] == campaign_event]
     for forecast_date, sub_df in predictions_campaign_df.groupby('forecast_date'):

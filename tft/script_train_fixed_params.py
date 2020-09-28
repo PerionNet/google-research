@@ -42,6 +42,7 @@ import numpy as np
 import pandas as pd
 import tensorflow.compat.v1 as tf
 
+from data_formatters.cg import FeatureName
 from libs.data_utils import write_csv
 
 ExperimentConfig = expt_settings.configs.ExperimentConfig
@@ -54,10 +55,10 @@ def format_output_column(output_df, output_col_name, test_steps):
   output_melt['horizon'] = output_melt['t+'].str[2:].astype(int) + 1
   output_melt['date'] = output_melt['forecast_time'] + pd.to_timedelta(output_melt['horizon'], 'days')
   output_melt = output_melt.rename(columns={
-    'identifier': 'campaign_id',
+    'identifier': FeatureName.CAMPAIGN_EVENT,
     'forecast_time': 'forecast_date',
   })
-  return output_melt[['campaign_id', 'forecast_date', 'horizon', 'date', output_col_name]]
+  return output_melt[[FeatureName.CAMPAIGN_EVENT, 'forecast_date', 'horizon', 'date', output_col_name]]
 
 
 def format_outputs(targets, p50_forecast, test_steps):
@@ -69,7 +70,7 @@ def format_outputs(targets, p50_forecast, test_steps):
     targets_melt
     .merge(
       pred_melt,
-      on=['campaign_id', 'forecast_date', 'horizon', 'date'],
+      on=[FeatureName.CAMPAIGN_EVENT, 'forecast_date', 'horizon', 'date'],
       how='outer',
     )
   )
