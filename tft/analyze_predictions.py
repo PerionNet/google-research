@@ -80,12 +80,12 @@ def main(expt_name, config):
       sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].fillna(campaign_id).astype(int)
 
       sub_df = sub_df.rename(columns={'target': 'target_pred'})
+      test_campaign_df = test_campaign_df.drop(columns=[FeatureName.CAMPAIGN_ID, FeatureName.TARGET_EVENT])
+
       sub_df = sub_df.merge(
         test_campaign_df,
         on=[
           FeatureName.CAMPAIGN_EVENT,
-          FeatureName.CAMPAIGN_ID,
-          FeatureName.TARGET_EVENT,
           FeatureName.DATE,
         ],
       )
