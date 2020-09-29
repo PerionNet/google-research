@@ -52,18 +52,18 @@ def main(expt_name, config):
   dfs = []
 
   # todo: remove after model re-train
-  predictions_df = predictions_df.rename(columns={'campaign_id': FeatureName.CAMPAIGN_EVENT})
+  predictions_df = predictions_df.rename(columns={'campaign_id': FeatureName.CAMPAIGN_BG_EVENT})
 
   predictions_df = pd.concat([
     predictions_df,
     pd.DataFrame(
-      predictions_df[FeatureName.CAMPAIGN_EVENT].str.split('_', 1).tolist(),
+      predictions_df[FeatureName.CAMPAIGN_BG_EVENT].str.split('_', 1).tolist(),
       columns=[FeatureName.CAMPAIGN_ID, FeatureName.TARGET_EVENT],
     ),
   ], axis=1)
 
-  for (campaign_event, campaign_id), predictions_campaign_df in predictions_df.groupby([FeatureName.CAMPAIGN_EVENT, FeatureName.CAMPAIGN_ID]):
-    test_campaign_df = test_df[test_df[FeatureName.CAMPAIGN_EVENT] == campaign_event]
+  for (campaign_event, campaign_id), predictions_campaign_df in predictions_df.groupby([FeatureName.CAMPAIGN_BG_EVENT, FeatureName.CAMPAIGN_ID]):
+    test_campaign_df = test_df[test_df[FeatureName.CAMPAIGN_BG_EVENT] == campaign_event]
     test_campaign_df = test_campaign_df.drop(columns=[FeatureName.CAMPAIGN_ID, FeatureName.TARGET_EVENT])
 
     for forecast_date, sub_df in predictions_campaign_df.groupby('forecast_date'):
@@ -78,15 +78,15 @@ def main(expt_name, config):
         name='date',
       )).reset_index()
 
-      sub_df[FeatureName.CAMPAIGN_EVENT] = sub_df[FeatureName.CAMPAIGN_EVENT].fillna(campaign_event)
+      sub_df[FeatureName.CAMPAIGN_BG_EVENT] = sub_df[FeatureName.CAMPAIGN_BG_EVENT].fillna(campaign_event)
       sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].fillna(campaign_id).astype(int)
 
-      sub_df = sub_df.rename(columns={'target': 'target_pred'})
+      sub_df = sub_df.rename(columns={'target': 'target_from_pred'})
 
       sub_df = sub_df.merge(
         test_campaign_df,
         on=[
-          FeatureName.CAMPAIGN_EVENT,
+          FeatureName.CAMPAIGN_BG_EVENT,
           FeatureName.DATE,
         ],
       )
@@ -94,8 +94,15 @@ def main(expt_name, config):
       sub_df = sub_df[sub_df["present"] == 1]
 
       sub_df = sub_df.sort_values('date')
-      sub_df['target_pred'] = np.exp(sub_df['target_pred']) - 1
-      sub_df['forecast'] = np.exp(sub_df['forecast']) - 1
+
+      for col in [
+        'forecast',
+        FeatureName.SPEND,
+        FeatureName.TARGET,
+        FeatureName.BUDGET,
+      ]:
+        sub_df[col] = np.expm1(sub_df[col])
+
       sub_df.loc[sub_df['forecast'] < 0, 'forecast'] = 0
       sub_df['forecast'] = np.where(
         sub_df['forecast'].isnull(),
@@ -115,6 +122,14 @@ def main(expt_name, config):
       sub_df['conv_pred'] = sub_df['forecast'].cumsum()
       sub_df['y_true'] = sub_df['spend_real'] / sub_df['conv_real']
       sub_df['y_pred'] = sub_df['spend_pred'] / sub_df['conv_pred']
+
+      last_y_true = sub_df.loc[sub_df['horizon'] == -1, 'y_true'].iloc[-1]
+      sub_df['y_pred_benchmark'] = np.where(
+        sub_df['horizon'] < 0,
+        sub_df['y_true'],
+        last_y_true,
+      )
+
       sub_df = sub_df.replace(np.inf, np.nan)
 
       if len(sub_df) < 14:
@@ -133,17 +148,16 @@ def main(expt_name, config):
       #   pass
 
       dfs.append(sub_df[[
-        FeatureName.CAMPAIGN_EVENT, 'campaign_id', 'date',
-        'horizon',
+        FeatureName.CAMPAIGN_BG_EVENT, FeatureName.CAMPAIGN_ID, FeatureName.DATE,
+        'horizon', FeatureName.BUDGET, FeatureName.BUDGET_TYPE,
         FeatureName.SPEND, 'spend_campaign_pred', FeatureName.TARGET, 'forecast',
         'spend_real', 'spend_pred', 'conv_real', 'conv_pred',
-        'y_true', 'y_pred',
+        'y_true', 'y_pred', 'y_pred_benchmark',
       ]])
 
   print(f"Sample size: {len(dfs)}")
 
   df = pd.concat(dfs, axis=0).reset_index(drop=True)
-  df['err'] = (df['y_true'] - df['y_pred']).abs() / df['y_true']
 
   errs = {}
   for horizon, sub_df in df.groupby('horizon'):
@@ -151,6 +165,7 @@ def main(expt_name, config):
     errs[horizon] = {
       'count': len(sub_df),
       'rmsle': np.exp(rmsle(sub_df['y_true'], sub_df['y_pred'])),
+      'rmsle_benchmark': np.exp(rmsle(sub_df['y_true'], sub_df['y_pred_benchmark'])),
     }
   for h, d in errs.items():
     print(h, d)
@@ -195,6 +210,7 @@ def main(expt_name, config):
   # tmp2 = {i: df[df['series_id'] == tmp.index[-i][0]] for i in range(len(tmp) // 2 - 5, len(tmp) // 2 + 5)}
   # tmp3 = {i: df[df['series_id'] == tmp.index[i][0]] for i in range(20)}
 
+  df['err'] = (df['y_true'] - df['y_pred']).abs() / df['y_true']
   print(df.groupby('horizon')['err'].mean())
   df.to_csv('results.csv', index=False)
 

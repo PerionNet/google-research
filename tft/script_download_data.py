@@ -629,8 +629,9 @@ def preprocess_cg(config):
     df[FeatureName.PRESENT] = 1
     df = df[[f.name for f in all_features]]
 
-    for (series_id, campaign_id), sub_df in df.groupby([
-        FeatureName.CAMPAIGN_EVENT,
+    for (series_id, campaign_bg, campaign_id), sub_df in df.groupby([
+        FeatureName.CAMPAIGN_BG_EVENT,
+        FeatureName.CAMPAIGN_BG,
         FeatureName.CAMPAIGN_ID,
     ]):
 
@@ -640,13 +641,15 @@ def preprocess_cg(config):
             days_to_add_to_train = train_steps - present_days_in_train
             days_to_add_to_test = test_steps - present_days_in_test
 
+            sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].astype(str)
             sub_df = sub_df.set_index(FeatureName.DATE)
             first_train_date = sub_df.index.min() - pd.Timedelta(days=days_to_add_to_train)
             last_test_date = sub_df.index.max() + pd.Timedelta(days=days_to_add_to_test)
             sub_df = sub_df.reindex(pd.date_range(first_train_date, last_test_date, freq="D", name=FeatureName.DATE))
             sub_df = sub_df.reset_index()
-            sub_df[FeatureName.CAMPAIGN_EVENT] = sub_df[FeatureName.CAMPAIGN_EVENT].fillna(series_id)
-            sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].fillna(campaign_id)
+            sub_df[FeatureName.CAMPAIGN_BG_EVENT] = sub_df[FeatureName.CAMPAIGN_BG_EVENT].fillna(series_id)
+            sub_df[FeatureName.CAMPAIGN_BG_EVENT] = sub_df[FeatureName.CAMPAIGN_BG_EVENT].fillna(campaign_bg)
+            sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].fillna(str(campaign_id)).astype(int)
             sub_df[FeatureName.TARGET] = sub_df[FeatureName.TARGET].fillna(-0.7)
 
             assert len(sub_df) == total_steps

@@ -55,10 +55,10 @@ def format_output_column(output_df, output_col_name, test_steps):
   output_melt['horizon'] = output_melt['t+'].str[2:].astype(int) + 1
   output_melt['date'] = output_melt['forecast_time'] + pd.to_timedelta(output_melt['horizon'], 'days')
   output_melt = output_melt.rename(columns={
-    'identifier': FeatureName.CAMPAIGN_EVENT,
+    'identifier': FeatureName.CAMPAIGN_BG_EVENT,
     'forecast_time': 'forecast_date',
   })
-  return output_melt[[FeatureName.CAMPAIGN_EVENT, 'forecast_date', 'horizon', 'date', output_col_name]]
+  return output_melt[[FeatureName.CAMPAIGN_BG_EVENT, 'forecast_date', 'horizon', 'date', output_col_name]]
 
 
 def format_outputs(targets, p50_forecast, test_steps):
@@ -70,7 +70,7 @@ def format_outputs(targets, p50_forecast, test_steps):
     targets_melt
     .merge(
       pred_melt,
-      on=[FeatureName.CAMPAIGN_EVENT, 'forecast_date', 'horizon', 'date'],
+      on=[FeatureName.CAMPAIGN_BG_EVENT, 'forecast_date', 'horizon', 'date'],
       how='outer',
     )
   )
@@ -125,6 +125,7 @@ def main(expt_name,
   print("Loading & splitting data...")
   data_csv_path = config.data_csv_path
   raw_data = pd.read_csv(data_csv_path, index_col=0)
+  raw_data = raw_data.replace(np.inf, 0)
   train, valid, test = data_formatter.split_data(raw_data, config)
   train_samples, valid_samples = data_formatter.get_num_samples_for_calibration()
 
@@ -269,14 +270,22 @@ if __name__ == "__main__":
       choices=["yes", "no"],
       default="no",
       help="Whether re-train model.")
+    parser.add_argument(
+      "use_testing_mode",
+      metavar="g",
+      type=str,
+      nargs="?",
+      choices=["yes", "no"],
+      default="no",
+      help="Whether re-train model.")
 
     args = parser.parse_known_args()[0]
 
     root_folder = None if args.output_folder == "." else args.output_folder
 
-    return args.expt_name, root_folder, args.use_gpu == "yes", args.skip_train == "yes"
+    return args.expt_name, root_folder, args.use_gpu == "yes", args.skip_train == "yes", args.use_testing_mode == "yes"
 
-  name, output_folder, use_tensorflow_with_gpu, skip_train = get_args()
+  name, output_folder, use_tensorflow_with_gpu, skip_train, use_testing_mode = get_args()
 
   print("Using output folder {}".format(output_folder))
 
@@ -290,6 +299,6 @@ if __name__ == "__main__":
       model_folder=os.path.join(config.model_folder, "fixed"),
       config=config,
       data_formatter=formatter,
-      use_testing_mode=False,
+      use_testing_mode=use_testing_mode,
       skip_train=skip_train,
   )  # Change to false to use original default params

@@ -40,7 +40,8 @@ class FeatureName:
 
   DC_ID = 'data_connector_id'
   CAMPAIGN_ID = 'campaign_id'
-  CAMPAIGN_EVENT = 'campaign_event'
+  CAMPAIGN_BG = 'campaign_bg'
+  CAMPAIGN_BG_EVENT = 'campaign_bg_event'
   DATE = 'date'
   OBJECTIVE = 'objective'
   COMMON_OBJECTIVE = 'common_objective'
@@ -50,7 +51,8 @@ class FeatureName:
   SPEND = 'spend'
   IMPRESSIONS = 'impressions'
   CLICKS = 'clicks'
-  TARGET = 'target'
+  CONVERSIONS = 'conversions'
+  TARGET = 'cpa'
   TARGET_EVENT = 'target_event'
   TARGET_EVENT_OPTIMIZED_CONVERSIONS_PERCENT = 'target_event_optimized_conversions_percent'
   TARGET_EVENT_OPTIMIZED_SPEND_PERCENT = 'target_event_optimized_spend_percent'
@@ -115,10 +117,14 @@ class FeatureName:
   SPEND_LAST_3_DAYS = "spend_last_3_days"
   SPEND_LAST_5_DAYS = "spend_last_5_days"
   SPEND_LAST_7_DAYS = "spend_last_7_days"
-  TARGET_LAST_1000_DAYS_TO_YESTERDAY = "target_last_1000_days_to_yesterday"
-  TARGET_LAST_3_DAYS_TO_YESTERDAY = "target_last_3_days_to_yesterday"
-  TARGET_LAST_5_DAYS_TO_YESTERDAY = "target_last_5_days_to_yesterday"
-  TARGET_LAST_7_DAYS_TO_YESTERDAY = "target_last_7_days_to_yesterday"
+  CONVERSIONS_LAST_1000_DAYS = "conversions_last_1000_days"
+  CONVERSIONS_LAST_3_DAYS = "conversions_last_3_days"
+  CONVERSIONS_LAST_5_DAYS = "conversions_last_5_days"
+  CONVERSIONS_LAST_7_DAYS = "conversions_last_7_days"
+  TARGET_LAST_1000_DAYS_TO_YESTERDAY = "cpa_last_1000_days_to_yesterday"
+  TARGET_LAST_3_DAYS_TO_YESTERDAY = "cpa_last_3_days_to_yesterday"
+  TARGET_LAST_5_DAYS_TO_YESTERDAY = "cpa_last_5_days_to_yesterday"
+  TARGET_LAST_7_DAYS_TO_YESTERDAY = "cpa_last_7_days_to_yesterday"
 
   # Age
   AGE_13_17 = "age_13-17"
@@ -211,7 +217,7 @@ Feature = namedtuple("Feature", ["name", "dtype", "tft_dtype", "tft_input_type"]
 
 all_features = [
 
-  Feature(FeatureName.CAMPAIGN_EVENT, str, DataTypes.CATEGORICAL, InputTypes.ID),
+  Feature(FeatureName.CAMPAIGN_BG_EVENT, str, DataTypes.CATEGORICAL, InputTypes.ID),
 
   Feature(FeatureName.DATE, 'date', DataTypes.DATE, InputTypes.TIME),
 
@@ -220,6 +226,7 @@ all_features = [
   # Attributes
   Feature(FeatureName.DC_ID, int, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
   Feature(FeatureName.CAMPAIGN_ID, int, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
+  Feature(FeatureName.CAMPAIGN_BG, str, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
   Feature(FeatureName.TARGET_EVENT, str, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
   Feature(FeatureName.OBJECTIVE, str, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
   Feature(FeatureName.COMMON_OBJECTIVE, str, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
@@ -240,6 +247,7 @@ all_features = [
   Feature(FeatureName.SPEND, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
   Feature(FeatureName.IMPRESSIONS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
   Feature(FeatureName.CLICKS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.CONVERSIONS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
   # todo: revise these features
   # Feature(FeatureName.TARGET_EVENT_OPTIMIZED_SPEND_PERCENT, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
   # Feature(FeatureName.TARGET_EVENT_OPTIMIZED_CONVERSIONS_PERCENT, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
@@ -296,6 +304,10 @@ all_features = [
   Feature(FeatureName.SPEND_LAST_3_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
   Feature(FeatureName.SPEND_LAST_5_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
   Feature(FeatureName.SPEND_LAST_7_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.CONVERSIONS_LAST_1000_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.CONVERSIONS_LAST_3_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.CONVERSIONS_LAST_5_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+  Feature(FeatureName.CONVERSIONS_LAST_7_DAYS, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
   Feature(FeatureName.TARGET_LAST_1000_DAYS_TO_YESTERDAY, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
   Feature(FeatureName.TARGET_LAST_3_DAYS_TO_YESTERDAY, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
   Feature(FeatureName.TARGET_LAST_5_DAYS_TO_YESTERDAY, float, DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
