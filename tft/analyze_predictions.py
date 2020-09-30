@@ -8,7 +8,7 @@ from sklearn.metrics import mean_squared_log_error
 
 from data_formatters.cg import FeatureName
 from expt_settings.configs import ExperimentConfig
-from libs.data_utils import read_csv
+from libs.data_utils import read_csv, write_csv
 
 
 def rmsle(y_true, y_pred):
@@ -39,46 +39,51 @@ def has_spend_changed(spend_before: np.array, spend_after: np.array, alpha: floa
 
 def main(expt_name, config):
 
+  total_steps, test_steps = config.model_steps
+
   test_df = read_csv('test.csv', config)
-  test_df['date'] = pd.to_datetime(test_df['date'])
+  test_df[FeatureName.DATE] = pd.to_datetime(test_df[FeatureName.DATE])
 
   predictions_df = read_csv('predictions.csv', config)
-  predictions_df['date'] = pd.to_datetime(predictions_df['date'])
+  predictions_df[FeatureName.DATE] = pd.to_datetime(predictions_df[FeatureName.DATE])
   predictions_df['forecast_date'] = pd.to_datetime(predictions_df['forecast_date'])
 
   train_campaigns = read_csv("train_campaigns.csv", config)
-  train_campaigns['date'] = pd.to_datetime(train_campaigns['date'])
+  train_campaigns[FeatureName.DATE] = pd.to_datetime(train_campaigns[FeatureName.DATE])
 
   dfs = []
 
   # todo: remove after model re-train
-  predictions_df = predictions_df.rename(columns={'campaign_id': FeatureName.CAMPAIGN_BG_EVENT})
+  predictions_df = predictions_df.rename(columns={FeatureName.CAMPAIGN_ID: FeatureName.CAMPAIGN_BG_EVENT})
 
   predictions_df = pd.concat([
     predictions_df,
     pd.DataFrame(
-      predictions_df[FeatureName.CAMPAIGN_BG_EVENT].str.split('_', 1).tolist(),
-      columns=[FeatureName.CAMPAIGN_ID, FeatureName.TARGET_EVENT],
+      predictions_df[FeatureName.CAMPAIGN_BG_EVENT].str.split('_', 2).tolist(),
+      columns=[FeatureName.CAMPAIGN_ID, FeatureName.BUDGET_GROUP, FeatureName.TARGET_EVENT],
     ),
   ], axis=1)
 
-  for (campaign_event, campaign_id), predictions_campaign_df in predictions_df.groupby([FeatureName.CAMPAIGN_BG_EVENT, FeatureName.CAMPAIGN_ID]):
-    test_campaign_df = test_df[test_df[FeatureName.CAMPAIGN_BG_EVENT] == campaign_event]
-    test_campaign_df = test_campaign_df.drop(columns=[FeatureName.CAMPAIGN_ID, FeatureName.TARGET_EVENT])
+  for (campaign_bg_event, campaign_id), predictions_campaign_df in predictions_df.groupby([FeatureName.CAMPAIGN_BG_EVENT, FeatureName.CAMPAIGN_ID]):
+    test_campaign_df = test_df[test_df[FeatureName.CAMPAIGN_BG_EVENT] == campaign_bg_event]
+    test_campaign_df = test_campaign_df.drop(columns=[
+      FeatureName.CAMPAIGN_ID,
+      FeatureName.TARGET_EVENT,
+    ])
 
     for forecast_date, sub_df in predictions_campaign_df.groupby('forecast_date'):
 
       sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].astype(str)
 
-      sub_df = sub_df.set_index('date')
+      sub_df = sub_df.set_index(FeatureName.DATE)
       sub_df = sub_df.reindex(pd.date_range(
-        forecast_date - pd.Timedelta(days=14),
+        forecast_date - pd.Timedelta(days=total_steps),
         sub_df.index.max(),
         freq='D',
-        name='date',
+        name=FeatureName.DATE,
       )).reset_index()
 
-      sub_df[FeatureName.CAMPAIGN_BG_EVENT] = sub_df[FeatureName.CAMPAIGN_BG_EVENT].fillna(campaign_event)
+      sub_df[FeatureName.CAMPAIGN_BG_EVENT] = sub_df[FeatureName.CAMPAIGN_BG_EVENT].fillna(campaign_bg_event)
       sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].fillna(campaign_id).astype(int)
 
       sub_df = sub_df.rename(columns={'target': 'target_from_pred'})
@@ -91,9 +96,9 @@ def main(expt_name, config):
         ],
       )
 
-      sub_df = sub_df[sub_df["present"] == 1]
+      sub_df = sub_df[sub_df[FeatureName.PRESENT] == 1]
 
-      sub_df = sub_df.sort_values('date')
+      sub_df = sub_df.sort_values(FeatureName.DATE)
 
       for col in [
         'forecast',
@@ -104,24 +109,20 @@ def main(expt_name, config):
         sub_df[col] = np.expm1(sub_df[col])
 
       sub_df.loc[sub_df['forecast'] < 0, 'forecast'] = 0
+      sub_df.loc[sub_df[FeatureName.TARGET] < 0, FeatureName.TARGET] = 0
       sub_df['forecast'] = np.where(
         sub_df['forecast'].isnull(),
         sub_df[FeatureName.TARGET],
         sub_df['forecast'],
       )
       sub_df['horizon'] = sub_df['horizon'].fillna(-1).astype(int)
-      sub_df['spend_real'] = sub_df[FeatureName.SPEND].cumsum()
-      mean_known_spend_per_day = sub_df.loc[sub_df['horizon'] < 0, FeatureName.SPEND].mean()
-      sub_df['spend_campaign_pred'] = np.where(
-        sub_df['horizon'] < 0,
-        sub_df[FeatureName.SPEND],
-        mean_known_spend_per_day,
-      )
-      sub_df['spend_pred'] = sub_df['spend_campaign_pred'].cumsum()
-      sub_df['conv_real'] = sub_df[FeatureName.TARGET].cumsum()
-      sub_df['conv_pred'] = sub_df['forecast'].cumsum()
-      sub_df['y_true'] = sub_df['spend_real'] / sub_df['conv_real']
-      sub_df['y_pred'] = sub_df['spend_pred'] / sub_df['conv_pred']
+      sub_df['y_true'] = sub_df[FeatureName.TARGET]
+      sub_df['y_pred'] = sub_df['forecast']
+
+      if len(sub_df.loc[sub_df['horizon'] == -1, 'y_true']) == 0:
+        # todo: remove if print never called; should be fixed already
+        print(f'Bad id: {campaign_bg_event}')
+        continue
 
       last_y_true = sub_df.loc[sub_df['horizon'] == -1, 'y_true'].iloc[-1]
       sub_df['y_pred_benchmark'] = np.where(
@@ -132,7 +133,7 @@ def main(expt_name, config):
 
       sub_df = sub_df.replace(np.inf, np.nan)
 
-      if len(sub_df) < 14:
+      if len(sub_df) < total_steps:
         pass
 
       if has_spend_changed(
@@ -141,7 +142,7 @@ def main(expt_name, config):
       ):
         pass
 
-      if sub_df[FeatureName.TARGET].sum() < 14:
+      if sub_df[FeatureName.TARGET].sum() < total_steps:
         pass
 
       # if campaign_id not in train_campaigns['campaign_id'].unique():
@@ -150,8 +151,7 @@ def main(expt_name, config):
       dfs.append(sub_df[[
         FeatureName.CAMPAIGN_BG_EVENT, FeatureName.CAMPAIGN_ID, FeatureName.DATE,
         'horizon', FeatureName.BUDGET, FeatureName.BUDGET_TYPE,
-        FeatureName.SPEND, 'spend_campaign_pred', FeatureName.TARGET, 'forecast',
-        'spend_real', 'spend_pred', 'conv_real', 'conv_pred',
+        FeatureName.SPEND, FeatureName.TARGET, 'forecast',
         'y_true', 'y_pred', 'y_pred_benchmark',
       ]])
 
@@ -170,49 +170,7 @@ def main(expt_name, config):
   for h, d in errs.items():
     print(h, d)
 
-  # series_stats = pd.read_csv('series_stats.csv')
-  # series_stats["was_in_valid"] = series_stats["series_days_in_data"] >= 59
-  # df = df.merge(series_stats, on=['series_id'])
-  # series_stats_useful_columns = ['series_days_in_data', 'series_cpd', 'campaign_days_in_data', 'campaign_cpd', 'was_in_valid']
-  # df['series_cpd'] = df['series_cpd'].fillna(0)
-  # df['campaign_cpd'] = df['campaign_cpd'].fillna(0)
-  #
-  # print(f"Number of campaigns: {len(df['campaign_id'].unique())}")
-  #
-  # from sklearn.linear_model import LinearRegression as LR
-  # dfp = df.dropna()
-  # for f in series_stats_useful_columns:
-  #   print(LR().fit(dfp[[f]], dfp['err']).score(dfp[[f]], dfp['err']))
-
-  # budget_file = '/home/roman/tft_outputs/data/campaign_budgets_processed.csv'
-  # budget_df = pd.read_csv(budget_file, index_col=0)
-  # budget_df['date'] = pd.to_datetime(budget_df['date'])
-  # useful_budget_columns = [
-  #   'campaign_start_time',
-  #   'campaign_stop_time',
-  #   'campaign_daily_budget',
-  #   'campaign_lifetime_budget',
-  #   'campaign_budget_remaining',
-  #   'num_of_adsets_with_lifetime_budget',
-  #   'daily_budget_of_adsets_combined',
-  #   'is_cbo',
-  # ]
-  #
-  # df = (
-  #   df
-  #   .merge(budget_df[['campaign_id', 'date'] + useful_budget_columns], on=['campaign_id', 'date'], how='left')
-  # )
-
-  # tmp = df.groupby(['series_id', 'campaign_id']).agg({'conversions_campaign': 'sum', 'err': 'mean'})
-  # tmp = tmp.sort_values('conversions_campaign')
-  #
-  # tmp1 = {i: df[df['series_id'] == tmp.index[-i][0]] for i in range(1, 20)}
-  # tmp2 = {i: df[df['series_id'] == tmp.index[-i][0]] for i in range(len(tmp) // 2 - 5, len(tmp) // 2 + 5)}
-  # tmp3 = {i: df[df['series_id'] == tmp.index[i][0]] for i in range(20)}
-
-  df['err'] = (df['y_true'] - df['y_pred']).abs() / df['y_true']
-  print(df.groupby('horizon')['err'].mean())
-  df.to_csv('results.csv', index=False)
+  write_csv(df, 'results.csv', config, to_csv_kwargs={'index': False})
 
 
 if __name__ == "__main__":

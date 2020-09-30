@@ -125,7 +125,6 @@ def main(expt_name,
   print("Loading & splitting data...")
   data_csv_path = config.data_csv_path
   raw_data = pd.read_csv(data_csv_path, index_col=0)
-  raw_data = raw_data.replace(np.inf, 0)
   train, valid, test = data_formatter.split_data(raw_data, config)
   train_samples, valid_samples = data_formatter.get_num_samples_for_calibration()
 

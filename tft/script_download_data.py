@@ -570,20 +570,6 @@ def process_favorita(config):
   temporal.to_csv(config.data_csv_path)
 
 
-def any_metric_is_missing(df):
-  return reduce(
-    ior,
-    [
-      df[metric].isnull() for metric in [
-        'conversions_campaign',
-        'spend_campaign',
-        'impressions_campaign',
-        'clicks_campaign',
-      ]
-    ]
-  )
-
-
 def preprocess_cg(config):
 
     total_steps, test_steps = config.model_steps
@@ -592,35 +578,6 @@ def preprocess_cg(config):
     df = pd.read_parquet(os.path.join(config.data_folder, 'df_with_all_feats_new.parquet'), engine='pyarrow')
 
     df[FeatureName.DATE] = pd.to_datetime(df[FeatureName.DATE])
-
-    # campaign_stats = (
-    #   df
-    #   .groupby('campaign_id')
-    #   .agg({
-    #     'campaign_age': 'max',
-    #     'conversions_campaign': 'mean',
-    #   })
-    #   .rename(columns={
-    #     'campaign_age': 'campaign_days_in_data',
-    #     'conversions_campaign': 'campaign_cpd',
-    #   })
-    #   .reset_index()
-    # )
-    # series_stats = (
-    #   df
-    #   .groupby(['series_id', 'campaign_id'])
-    #   .agg({
-    #     'campaign_age': 'max',
-    #     'conversions_campaign': 'mean'
-    #   })
-    #   .rename(columns={
-    #     'campaign_age': 'series_days_in_data',
-    #     'conversions_campaign': 'series_cpd'
-    #   })
-    #   .reset_index()
-    # )
-    # series_stats = series_stats.merge(campaign_stats, on='campaign_id')
-    # series_stats.to_csv('series_stats.csv', index=False)
 
     # Resampling
     print('Resampling to regular grid')
@@ -650,20 +607,30 @@ def preprocess_cg(config):
             sub_df[FeatureName.CAMPAIGN_BG_EVENT] = sub_df[FeatureName.CAMPAIGN_BG_EVENT].fillna(series_id)
             sub_df[FeatureName.CAMPAIGN_BG_EVENT] = sub_df[FeatureName.CAMPAIGN_BG_EVENT].fillna(campaign_bg)
             sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].fillna(str(campaign_id)).astype(int)
+
+            # Here any constant c is okay such as np.log1p(c) <= -1
+            # As days are not present should not influence the loss
             sub_df[FeatureName.TARGET] = sub_df[FeatureName.TARGET].fillna(-0.7)
 
             assert len(sub_df) == total_steps
 
         for feature in all_features:
-            sub_df[feature.name] = sub_df[feature.name].fillna(0)  # .fillna(method='bfill').fillna(method='ffill')
+            # Missing value should not appear here, it should be fixed earlier
+            # todo: if some missing values are justified,
+            # replace .fillna(0) with .fillna(method='bfill').fillna(method='ffill')
+            # and move to series loop above
+            sub_df[feature.name] = sub_df[feature.name].fillna(0)
             utils.cast_feature_column_to_type(feature, sub_df)
 
         resampled_dfs.append(sub_df)
 
     df = pd.concat(resampled_dfs, axis=0).reset_index(drop=True)
 
+    # For cpa values
+    # todo: do it earlier while preparing data
+    df = df.replace(np.inf, 0)
+
     for metric in utils.extract_cols_from_dtype(float, CGFormatter._column_definition):
-        print(metric, df[metric].isnull().sum(), df[metric].value_counts())
         df[metric] = np.log1p(df[metric])
 
     df.to_csv(config.data_csv_path)

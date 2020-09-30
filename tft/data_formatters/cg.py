@@ -48,6 +48,7 @@ class FeatureName:
   NUM_ADSETS = 'num_adsets'
   BUDGET = 'budget'
   BUDGET_TYPE = 'budget_type'
+  BUDGET_GROUP = 'budget_group'
   SPEND = 'spend'
   IMPRESSIONS = 'impressions'
   CLICKS = 'clicks'
