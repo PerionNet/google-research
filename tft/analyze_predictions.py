@@ -115,6 +115,7 @@ def main(expt_name, config):
         sub_df[FeatureName.TARGET],
         sub_df['forecast'],
       )
+      sub_df['history'] = sub_df['horizon'].isnull().sum()
       sub_df['horizon'] = sub_df['horizon'].fillna(-1).astype(int)
       sub_df['y_true'] = sub_df[FeatureName.TARGET]
       sub_df['y_pred'] = sub_df['forecast']
@@ -152,23 +153,33 @@ def main(expt_name, config):
         FeatureName.CAMPAIGN_BG_EVENT, FeatureName.CAMPAIGN_ID, FeatureName.DATE,
         'horizon', FeatureName.BUDGET, FeatureName.BUDGET_TYPE,
         FeatureName.SPEND, FeatureName.TARGET, 'forecast',
-        'y_true', 'y_pred', 'y_pred_benchmark',
+        'y_true', 'y_pred', 'y_pred_benchmark', 'history',
       ]])
+
+    # Debug mode
+    if len(dfs) > 1000:
+      pass
 
   print(f"Sample size: {len(dfs)}")
 
   df = pd.concat(dfs, axis=0).reset_index(drop=True)
 
-  errs = {}
-  for horizon, sub_df in df.groupby('horizon'):
+  errs = []
+  for (horizon, history), sub_df in df.groupby(['horizon', 'history']):
+    if horizon == -1:
+      continue
     sub_df = sub_df.dropna()
-    errs[horizon] = {
-      'count': len(sub_df),
-      'rmsle': np.exp(rmsle(sub_df['y_true'], sub_df['y_pred'])),
-      'rmsle_benchmark': np.exp(rmsle(sub_df['y_true'], sub_df['y_pred_benchmark'])),
-    }
-  for h, d in errs.items():
-    print(h, d)
+    rmsle_model = int((np.exp(rmsle(sub_df['y_true'], sub_df['y_pred'])) - 1) * 100)
+    rmsle_benchmark = int((np.exp(rmsle(sub_df['y_true'], sub_df['y_pred_benchmark'])) - 1) * 100)
+    errs.append({
+      'horizon': horizon,
+      'history': history,
+      'value': f'{rmsle_model}% | {rmsle_benchmark}% | {len(sub_df)}',
+    })
+  errs = pd.DataFrame(errs)
+  errs = errs.pivot_table(values='value', index='history', columns='horizon', aggfunc=lambda l: ' '.join(l))
+  write_csv(errs, 'errs.csv', config)
+  print(errs)
 
   write_csv(df, 'results.csv', config, to_csv_kwargs={'index': False})
 
