@@ -32,4 +32,5 @@ to the format accepted by TFT.
 2. `data_formatters/cg.py` is completely dedicated to CG logic.
 3. Here `libs/utils.py:101` the loss is changed to skip days are not present in data
 (they are marked with `target <= -1`)
-4. `libs/data_utils.py` - utils to work with csv files and S3.
+4. Actual values of `TARGET_LAST_TRAIN_DAY` feature are calculated directly before train: `libs/tft_model.py:762`.
+5. `libs/data_utils.py` - utils to work with csv files and S3.
