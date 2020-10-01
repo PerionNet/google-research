@@ -36,6 +36,8 @@ import pandas as pd
 import tensorflow as tf
 
 # Layer definitions.
+from data_formatters.cg import FeatureName
+
 concat = tf.keras.backend.concatenate
 stack = tf.keras.backend.stack
 K = tf.keras.backend
@@ -742,16 +744,25 @@ class TemporalFusionTransformer(object):
     data_map = {}
     for id_, sliced in data.groupby(id_col):
 
-      col_mappings = {
-          'identifier': [id_col],
-          'time': [time_col],
-          'outputs': [target_col],
-          'inputs': input_cols
-      }
+      col_mappings = [
+          ('identifier', [id_col]),
+          ('time', [time_col]),
+          ('outputs', [target_col]),
+          ('inputs', input_cols),
+      ]
 
-      for k in col_mappings:
-        cols = col_mappings[k]
+      target_last_train_day = None
+
+      for k, cols in col_mappings:
         arr = _batch_single_entity(sliced[cols].copy())
+        if k == 'outputs':
+          target_last_train_day = [s[self.num_encoder_steps - 1][0] for s in arr]
+        elif k == 'inputs':
+          target_last_train_day_idx = cols.index(FeatureName.TARGET_LAST_TRAIN_DAY)
+          arr[:, :, target_last_train_day_idx] = (
+            np.repeat(target_last_train_day, self.time_steps)
+            .reshape((-1, self.time_steps))
+          )
         if arr is None:
             print(f"Bad id: {id_} of shape {sliced.shape}")
         if k not in data_map:

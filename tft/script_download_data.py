@@ -572,6 +572,10 @@ def process_favorita(config):
 
 def preprocess_cg(config):
 
+    # Here any constant c is okay such as np.log1p(c) <= -1
+    # As days are not present should not influence the loss
+    MISSING_TARGET_VALUE = -0.7
+
     total_steps, test_steps = config.model_steps
     train_steps = total_steps - test_steps
 
@@ -584,6 +588,7 @@ def preprocess_cg(config):
     resampled_dfs = []
 
     df[FeatureName.PRESENT] = 1
+    df[FeatureName.TARGET_LAST_TRAIN_DAY] = MISSING_TARGET_VALUE
     df = df[[f.name for f in all_features]]
 
     for (series_id, campaign_bg, campaign_id), sub_df in df.groupby([
@@ -608,9 +613,11 @@ def preprocess_cg(config):
             sub_df[FeatureName.CAMPAIGN_BG_EVENT] = sub_df[FeatureName.CAMPAIGN_BG_EVENT].fillna(campaign_bg)
             sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].fillna(str(campaign_id)).astype(int)
 
-            # Here any constant c is okay such as np.log1p(c) <= -1
-            # As days are not present should not influence the loss
-            sub_df[FeatureName.TARGET] = sub_df[FeatureName.TARGET].fillna(-0.7)
+            sub_df[FeatureName.TARGET] = sub_df[FeatureName.TARGET].fillna(MISSING_TARGET_VALUE)
+            sub_df[FeatureName.TARGET_LAST_TRAIN_DAY] = (
+              sub_df[FeatureName.TARGET_LAST_TRAIN_DAY]
+              .fillna(MISSING_TARGET_VALUE)
+            )
 
             assert len(sub_df) == total_steps
 

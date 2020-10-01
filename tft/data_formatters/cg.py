@@ -126,6 +126,7 @@ class FeatureName:
   TARGET_LAST_3_DAYS_TO_YESTERDAY = "cpa_last_3_days_to_yesterday"
   TARGET_LAST_5_DAYS_TO_YESTERDAY = "cpa_last_5_days_to_yesterday"
   TARGET_LAST_7_DAYS_TO_YESTERDAY = "cpa_last_7_days_to_yesterday"
+  TARGET_LAST_TRAIN_DAY = "cpa_last_train_day"
 
   # Age
   AGE_13_17 = "age_13-17"
@@ -229,8 +230,10 @@ all_features = [
   Feature(FeatureName.CAMPAIGN_ID, int, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
   Feature(FeatureName.CAMPAIGN_BG, str, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
   Feature(FeatureName.TARGET_EVENT, str, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
+  Feature(FeatureName.BUDGET_GROUP, int, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
   Feature(FeatureName.OBJECTIVE, str, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
   Feature(FeatureName.COMMON_OBJECTIVE, str, DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
+  Feature(FeatureName.TARGET_LAST_TRAIN_DAY, float, DataTypes.REAL_VALUED, InputTypes.STATIC_INPUT),
 
   # Known inputs
   Feature(FeatureName.BUDGET_TYPE, str, DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
