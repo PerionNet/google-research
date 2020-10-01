@@ -672,7 +672,7 @@ class CGFormatter(data_formatters.base.GenericDataFormatter):
     fixed_params = {
         'total_time_steps': 14,
         'num_encoder_steps': 7,
-        'num_epochs': 10,
+        'num_epochs': 100,
         'early_stopping_patience': 5,
         'multiprocessing_workers': 4
     }
