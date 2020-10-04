@@ -5,4 +5,6 @@ tensorflow-probability>=0.8.0
 wget>=3.2
 pyunpack>=0.1.2
 patool>=1.12
+pyarrow>=1.0.1
 
+-e git+ssh://git@github.com/PerionNet/cg-common.git@5e5c6bbd37f36318cc1efe738b8a405506dafd38#egg=cg-common

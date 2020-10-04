@@ -20,6 +20,7 @@ import os
 import pathlib
 
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 from tensorflow.python.tools.inspect_checkpoint import print_tensors_in_checkpoint_file
 
@@ -60,6 +61,21 @@ def extract_cols_from_data_type(data_type, column_definition,
   ]
 
 
+def extract_cols_from_dtype(dtype, column_definition):
+  return [
+    tup[0]
+    for tup in column_definition
+    if tup[3] == dtype
+  ]
+
+
+def cast_feature_column_to_type(feature, df):
+  if feature.dtype == 'date':
+    df[feature.name] = pd.to_datetime(df[feature.name])
+  else:
+    df[feature.name] = df[feature.name].astype(feature.dtype)
+
+
 # Loss functions.
 def tensorflow_quantile_loss(y, y_pred, quantile):
   """Computes quantile loss for tensorflow.
@@ -82,7 +98,7 @@ def tensorflow_quantile_loss(y, y_pred, quantile):
         'Illegal quantile value={}! Values should be between 0 and 1.'.format(
             quantile))
 
-  prediction_underflow = y - y_pred
+  prediction_underflow = (y - y_pred) * tf.cast(y > -1, tf.float32)
   q_loss = quantile * tf.maximum(prediction_underflow, 0.) + (
       1. - quantile) * tf.maximum(-prediction_underflow, 0.)
 

@@ -44,7 +44,10 @@ import glob
 import os
 import shutil
 import sys
+from functools import reduce
+from operator import ior
 
+from data_formatters.cg import CGFormatter, all_features, FeatureName
 from expt_settings.configs import ExperimentConfig
 import numpy as np
 import pandas as pd
@@ -53,6 +56,9 @@ import wget
 
 
 # General functions for data downloading & aggregation.
+from libs import utils
+
+
 def download_from_url(url, output_path):
   """Downloads a file froma url."""
 
@@ -564,6 +570,79 @@ def process_favorita(config):
   temporal.to_csv(config.data_csv_path)
 
 
+def preprocess_cg(config):
+
+    # Here any constant c is okay such as np.log1p(c) <= -1
+    # As days are not present should not influence the loss
+    MISSING_TARGET_VALUE = -0.7
+
+    total_steps, test_steps = config.model_steps
+    train_steps = total_steps - test_steps
+
+    df = pd.read_parquet(os.path.join(config.data_folder, 'df_with_all_feats_new.parquet'), engine='pyarrow')
+
+    df[FeatureName.DATE] = pd.to_datetime(df[FeatureName.DATE])
+
+    # Resampling
+    print('Resampling to regular grid')
+    resampled_dfs = []
+
+    df[FeatureName.PRESENT] = 1
+    df[FeatureName.TARGET_LAST_TRAIN_DAY] = MISSING_TARGET_VALUE
+    df = df[[f.name for f in all_features]]
+
+    for (series_id, campaign_bg, campaign_id), sub_df in df.groupby([
+        FeatureName.CAMPAIGN_BG_EVENT,
+        FeatureName.CAMPAIGN_BG,
+        FeatureName.CAMPAIGN_ID,
+    ]):
+
+        if len(sub_df) < total_steps:
+            present_days_in_train = len(sub_df) // 2
+            present_days_in_test = len(sub_df) - present_days_in_train
+            days_to_add_to_train = train_steps - present_days_in_train
+            days_to_add_to_test = test_steps - present_days_in_test
+
+            sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].astype(str)
+            sub_df = sub_df.set_index(FeatureName.DATE)
+            first_train_date = sub_df.index.min() - pd.Timedelta(days=days_to_add_to_train)
+            last_test_date = sub_df.index.max() + pd.Timedelta(days=days_to_add_to_test)
+            sub_df = sub_df.reindex(pd.date_range(first_train_date, last_test_date, freq="D", name=FeatureName.DATE))
+            sub_df = sub_df.reset_index()
+            sub_df[FeatureName.CAMPAIGN_BG_EVENT] = sub_df[FeatureName.CAMPAIGN_BG_EVENT].fillna(series_id)
+            sub_df[FeatureName.CAMPAIGN_BG_EVENT] = sub_df[FeatureName.CAMPAIGN_BG_EVENT].fillna(campaign_bg)
+            sub_df[FeatureName.CAMPAIGN_ID] = sub_df[FeatureName.CAMPAIGN_ID].fillna(str(campaign_id)).astype(int)
+
+            sub_df[FeatureName.TARGET] = sub_df[FeatureName.TARGET].fillna(MISSING_TARGET_VALUE)
+            sub_df[FeatureName.TARGET_LAST_TRAIN_DAY] = (
+              sub_df[FeatureName.TARGET_LAST_TRAIN_DAY]
+              .fillna(MISSING_TARGET_VALUE)
+            )
+
+            assert len(sub_df) == total_steps
+
+        for feature in all_features:
+            # Missing value should not appear here, it should be fixed earlier
+            # todo: if some missing values are justified,
+            # replace .fillna(0) with .fillna(method='bfill').fillna(method='ffill')
+            # and move to series loop above
+            sub_df[feature.name] = sub_df[feature.name].fillna(0)
+            utils.cast_feature_column_to_type(feature, sub_df)
+
+        resampled_dfs.append(sub_df)
+
+    df = pd.concat(resampled_dfs, axis=0).reset_index(drop=True)
+
+    # For cpa values
+    # todo: do it earlier while preparing data
+    df = df.replace(np.inf, 0)
+
+    for metric in utils.extract_cols_from_dtype(float, CGFormatter._column_definition):
+        df[metric] = np.log1p(df[metric])
+
+    df.to_csv(config.data_csv_path)
+
+
 # Core routine.
 def main(expt_name, force_download, output_folder):
   """Runs main download routine.
@@ -578,20 +657,22 @@ def main(expt_name, force_download, output_folder):
 
   expt_config = ExperimentConfig(expt_name, output_folder)
 
-  if os.path.exists(expt_config.data_csv_path) and not force_download:
-    print('Data has been processed for {}. Skipping download...'.format(
-        expt_name))
-    sys.exit(0)
-  else:
-    print('Resetting data folder...')
-    recreate_folder(expt_config.data_folder)
+  # if os.path.exists(expt_config.data_csv_path) and not force_download:
+  #   print('Data has been processed for {}. Skipping download...'.format(
+  #       expt_name))
+  #   sys.exit(0)
+  # todo: why to do this?
+  # else:
+  #   print('Resetting data folder...')
+  #   recreate_folder(expt_config.data_folder)
 
   # Default download functions
   download_functions = {
       'volatility': download_volatility,
       'electricity': download_electricity,
       'traffic': download_traffic,
-      'favorita': process_favorita
+      'favorita': process_favorita,
+      'cg': preprocess_cg,
   }
 
   if expt_name not in download_functions:

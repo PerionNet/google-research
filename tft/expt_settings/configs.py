@@ -26,6 +26,7 @@ import data_formatters.electricity
 import data_formatters.favorita
 import data_formatters.traffic
 import data_formatters.volatility
+import data_formatters.cg
 
 
 class ExperimentConfig(object):
@@ -42,7 +43,7 @@ class ExperimentConfig(object):
       experiment.
   """
 
-  default_experiments = ['volatility', 'electricity', 'traffic', 'favorita']
+  default_experiments = ['volatility', 'electricity', 'traffic', 'favorita', 'cg']
 
   def __init__(self, experiment='volatility', root_folder=None):
     """Creates configs based on default experiment chosen.
@@ -81,7 +82,8 @@ class ExperimentConfig(object):
         'volatility': 'formatted_omi_vol.csv',
         'electricity': 'hourly_electricity.csv',
         'traffic': 'hourly_data.csv',
-        'favorita': 'favorita_consolidated.csv'
+        'favorita': 'favorita_consolidated.csv',
+        'cg': 'result_input.csv',
     }
 
     return os.path.join(self.data_folder, csv_map[self.experiment])
@@ -102,7 +104,14 @@ class ExperimentConfig(object):
         'volatility': data_formatters.volatility.VolatilityFormatter,
         'electricity': data_formatters.electricity.ElectricityFormatter,
         'traffic': data_formatters.traffic.TrafficFormatter,
-        'favorita': data_formatters.favorita.FavoritaFormatter
+        'favorita': data_formatters.favorita.FavoritaFormatter,
+        'cg': data_formatters.cg.CGFormatter,
     }
 
     return data_formatter_class[self.experiment]()
+
+  @property
+  def model_steps(self):
+    data_formatter = self.make_data_formatter()
+    fixed_params = data_formatter.get_fixed_params()
+    return fixed_params['total_time_steps'], fixed_params['num_encoder_steps']

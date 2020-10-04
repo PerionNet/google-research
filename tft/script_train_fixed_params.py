@@ -42,17 +42,55 @@ import numpy as np
 import pandas as pd
 import tensorflow.compat.v1 as tf
 
+from data_formatters.cg import FeatureName
+from libs.data_utils import write_csv
+
 ExperimentConfig = expt_settings.configs.ExperimentConfig
 HyperparamOptManager = libs.hyperparam_opt.HyperparamOptManager
 ModelClass = libs.tft_model.TemporalFusionTransformer
 
 
+def format_output_column(output_df, output_col_name, test_steps):
+  output_melt = output_df.melt(['forecast_time', 'identifier'], [f't+{i}' for i in range(test_steps)], 't+', output_col_name)
+  output_melt['horizon'] = output_melt['t+'].str[2:].astype(int) + 1
+  output_melt['date'] = output_melt['forecast_time'] + pd.to_timedelta(output_melt['horizon'], 'days')
+  output_melt = output_melt.rename(columns={
+    'identifier': FeatureName.CAMPAIGN_BG_EVENT,
+    'forecast_time': 'forecast_date',
+  })
+  return output_melt[[FeatureName.CAMPAIGN_BG_EVENT, 'forecast_date', 'horizon', 'date', output_col_name]]
+
+
+def format_outputs(targets, p50_forecast, test_steps):
+
+  targets_melt = format_output_column(targets, 'target', test_steps)
+  pred_melt = format_output_column(p50_forecast, 'forecast', test_steps)
+
+  result = (
+    targets_melt
+    .merge(
+      pred_melt,
+      on=[FeatureName.CAMPAIGN_BG_EVENT, 'forecast_date', 'horizon', 'date'],
+      how='outer',
+    )
+  )
+
+  return result
+
+
+def format_test(test, data_formatter):
+  data_formatter.reverse_scale(test)
+  return test
+
+
 def main(expt_name,
          use_gpu,
          model_folder,
-         data_csv_path,
+         config,
          data_formatter,
-         use_testing_mode=False):
+         use_testing_mode=False,
+         skip_train=False,
+         ):
   """Trains tft based on defined model params.
 
   Args:
@@ -85,64 +123,68 @@ def main(expt_name,
   print("*** Training from defined parameters for {} ***".format(expt_name))
 
   print("Loading & splitting data...")
+  data_csv_path = config.data_csv_path
   raw_data = pd.read_csv(data_csv_path, index_col=0)
-  train, valid, test = data_formatter.split_data(raw_data)
-  train_samples, valid_samples = data_formatter.get_num_samples_for_calibration(
-  )
+  train, valid, test = data_formatter.split_data(raw_data, config)
+  train_samples, valid_samples = data_formatter.get_num_samples_for_calibration()
 
   # Sets up default params
+  total_steps, test_steps = config.model_steps
   fixed_params = data_formatter.get_experiment_params()
-  params = data_formatter.get_default_model_params()
-  params["model_folder"] = model_folder
+  init_params = data_formatter.get_default_model_params()
+  init_params["model_folder"] = model_folder
 
   # Parameter overrides for testing only! Small sizes used to speed up script.
   if use_testing_mode:
     fixed_params["num_epochs"] = 1
-    params["hidden_layer_size"] = 5
+    init_params["hidden_layer_size"] = 5
     train_samples, valid_samples = 100, 10
 
   # Sets up hyperparam manager
   print("*** Loading hyperparm manager ***")
-  opt_manager = HyperparamOptManager({k: [params[k]] for k in params},
+  opt_manager = HyperparamOptManager({k: [init_params[k]] for k in init_params},
                                      fixed_params, model_folder)
 
   # Training -- one iteration only
   print("*** Running calibration ***")
   print("Params Selected:")
-  for k in params:
-    print("{}: {}".format(k, params[k]))
+  for k in init_params:
+    print("{}: {}".format(k, init_params[k]))
 
-  best_loss = np.Inf
-  for _ in range(num_repeats):
+  if not skip_train:
+    best_loss = np.Inf
+    for _ in range(num_repeats):
 
-    tf.reset_default_graph()
-    with tf.Graph().as_default(), tf.Session(config=tf_config) as sess:
+      tf.reset_default_graph()
+      with tf.Graph().as_default(), tf.Session(config=tf_config) as sess:
 
-      tf.keras.backend.set_session(sess)
+        tf.keras.backend.set_session(sess)
 
-      params = opt_manager.get_next_parameters()
-      model = ModelClass(params, use_cudnn=use_gpu)
+        params = opt_manager.get_next_parameters()
+        model = ModelClass(params, use_cudnn=use_gpu)
 
-      if not model.training_data_cached():
-        model.cache_batched_data(train, "train", num_samples=train_samples)
-        model.cache_batched_data(valid, "valid", num_samples=valid_samples)
+        if not model.training_data_cached():
+          model.cache_batched_data(train, "train", num_samples=train_samples)
+          model.cache_batched_data(valid, "valid", num_samples=valid_samples)
 
-      sess.run(tf.global_variables_initializer())
-      model.fit()
+        sess.run(tf.global_variables_initializer())
+        model.fit()
 
-      val_loss = model.evaluate()
+        val_loss = model.evaluate()
 
-      if val_loss < best_loss:
-        opt_manager.update_score(params, val_loss, model)
-        best_loss = val_loss
+        if val_loss < best_loss:
+          opt_manager.update_score(params, val_loss, model)
+          best_loss = val_loss
 
-      tf.keras.backend.set_session(default_keras_session)
+        tf.keras.backend.set_session(default_keras_session)
+    best_params = opt_manager.get_best_params()
+  else:
+    best_params = opt_manager.get_next_parameters()
 
   print("*** Running tests ***")
   tf.reset_default_graph()
   with tf.Graph().as_default(), tf.Session(config=tf_config) as sess:
     tf.keras.backend.set_session(sess)
-    best_params = opt_manager.get_best_params()
     model = ModelClass(best_params, use_cudnn=use_gpu)
 
     model.load(opt_manager.hyperparam_folder)
@@ -171,6 +213,11 @@ def main(expt_name,
         0.9)
 
     tf.keras.backend.set_session(default_keras_session)
+
+  test = format_test(test, data_formatter)
+  write_csv(test, 'test.csv', config, to_csv_kwargs={'index': False})
+  predictions = format_outputs(targets, p50_forecast, test_steps)
+  write_csv(predictions, 'predictions.csv', config, to_csv_kwargs={'index': False})
 
   print("Training completed @ {}".format(dte.datetime.now()))
   print("Best validation loss = {}".format(val_loss))
@@ -214,14 +261,30 @@ if __name__ == "__main__":
         choices=["yes", "no"],
         default="no",
         help="Whether to use gpu for training.")
+    parser.add_argument(
+      "skip_train",
+      metavar="g",
+      type=str,
+      nargs="?",
+      choices=["yes", "no"],
+      default="no",
+      help="Whether re-train model.")
+    parser.add_argument(
+      "use_testing_mode",
+      metavar="g",
+      type=str,
+      nargs="?",
+      choices=["yes", "no"],
+      default="no",
+      help="Whether re-train model.")
 
     args = parser.parse_known_args()[0]
 
     root_folder = None if args.output_folder == "." else args.output_folder
 
-    return args.expt_name, root_folder, args.use_gpu == "yes"
+    return args.expt_name, root_folder, args.use_gpu == "yes", args.skip_train == "yes", args.use_testing_mode == "yes"
 
-  name, output_folder, use_tensorflow_with_gpu = get_args()
+  name, output_folder, use_tensorflow_with_gpu, skip_train, use_testing_mode = get_args()
 
   print("Using output folder {}".format(output_folder))
 
@@ -233,6 +296,8 @@ if __name__ == "__main__":
       expt_name=name,
       use_gpu=use_tensorflow_with_gpu,
       model_folder=os.path.join(config.model_folder, "fixed"),
-      data_csv_path=config.data_csv_path,
+      config=config,
       data_formatter=formatter,
-      use_testing_mode=True)  # Change to false to use original default params
+      use_testing_mode=use_testing_mode,
+      skip_train=skip_train,
+  )  # Change to false to use original default params
